@@ -1,0 +1,238 @@
+<div class="page">
+  <a mat-button routerLink="/opportunities" class="back"><mat-icon>arrow_back</mat-icon>Opportunities</a>
+  @if (loading()) { <mat-progress-bar mode="indeterminate" /> }
+  @if (error()) { <div class="error-banner" style="margin:8px 0">{{ error() }}</div> }
+
+  @if (data(); as d) {
+    @let s = d.summary;
+    <header class="head">
+      <div class="row tags">
+        <span class="pill outline">{{ s.eventType | label }}</span>
+        <span class="pill">{{ s.status | label }}@if (s.statusInferred) { · inferred }</span>
+        @if (s.sourceVerified) { <span class="pill ok"><mat-icon>verified</mat-icon>Verified source</span> }
+        @else { <span class="pill warn">Unverified source</span> }
+        @if (s.sector === 'MINING') { <span class="pill brand"><mat-icon>landscape</mat-icon>Mining company</span> }
+        @else if (s.miningRelated) { <span class="pill brand" [matTooltip]="d.miningEvidence ?? ''"><mat-icon>landscape</mat-icon>Mining-related</span> }
+        @if (d.duplicateOfId) { <a class="pill warn" [routerLink]="['/opportunities', d.duplicateOfId]">Possible duplicate listing</a> }
+      </div>
+      <h1>{{ readable(s.title) }}</h1>
+      @if (readable(s.title) !== s.title) { <div class="as-published">As published: {{ s.title }}</div> }
+      <div class="row muted">
+        @if (s.organisationId) { <a [routerLink]="['/organisations', s.organisationId]" class="strong">{{ s.organisationName }}</a> }
+        @else { <span>Organisation not specified</span> }
+        @if (s.referenceNumber) { <span>·</span><span class="mono">{{ s.referenceNumber }}</span> }
+        @if (s.province) { <span>·</span><span>{{ s.province | label }}</span> }
+      </div>
+      <div class="row actions">
+        <a mat-flat-button [href]="d.evidence.sourceUrl" target="_blank" rel="noopener noreferrer"><mat-icon>open_in_new</mat-icon>Open original source</a>
+        @if (!pipeline() && canEditPipeline) { <button mat-stroked-button (click)="shortlist()"><mat-icon>bookmark_add</mat-icon>Add to pipeline</button> }
+        @if (ui.aiStatus()?.assistantAvailable) { <button mat-stroked-button class="ai-btn" (click)="askAi()"><mat-icon>auto_awesome</mat-icon>Ask AI about this</button> }
+      </div>
+    </header>
+
+    <section class="facts">
+      <div class="fact">
+        <div class="label">Closing</div>
+        <div class="value">{{ closing() }}</div>
+        <div class="sub" [class.urgent]="s.urgency === 'URGENT' || s.urgency === 'CLOSING_TODAY'">{{ closingRelative() }}</div>
+        @if (!s.closingTimeSpecified && s.closingDate) { <div class="sub">Time not stated by the source</div> }
+      </div>
+      <div class="fact">
+        <div class="label">Submission <span class="prov" [class]="d.submission.provenance">{{ d.submission.provenance ?? '' }}</span></div>
+        <div class="value">
+          @switch (d.submission.method) {
+            @case ('ELECTRONIC') { <mat-icon>cloud_upload</mat-icon> Electronic }
+            @case ('PHYSICAL') { <mat-icon>local_shipping</mat-icon> Physical delivery }
+            @case ('ELECTRONIC_OR_PHYSICAL') { Electronic or physical }
+            @default { Not stated }
+          }
+        </div>
+        @if (d.submission.channel) { <div class="sub">{{ d.submission.channel }}</div> }
+        @if (d.submission.address) { <div class="sub strong-sub">{{ d.submission.address }}</div> }
+        @if (d.submission.twoEnvelope) { <div class="sub">Two-envelope submission</div> }
+      </div>
+      <div class="fact">
+        <div class="label">Briefing</div>
+        @if (d.briefingDetails) {
+          <div class="value">@if (d.briefingCompulsory) { <span class="pill danger">Compulsory</span> } @else { Optional }</div>
+          @if (briefing()) { <div class="sub">{{ briefing() }}</div> }
+          @if (d.briefingVenue) { <div class="sub">{{ d.briefingVenue }}</div> }
+        } @else { <div class="value muted">None stated</div> }
+      </div>
+      <div class="fact">
+        <div class="label">Value</div>
+        <div class="value">@if (d.estimatedValue !== null) { {{ d.estimatedValue | currency: (d.currency ?? 'ZAR') : 'symbol-narrow' }} } @else { <span class="muted">Not published</span> }</div>
+        <div class="sub">{{ s.procurementCategory | label }}@if (d.sourceCategoryLabel) { · {{ d.sourceCategoryLabel }} }</div>
+      </div>
+    </section>
+    @if (d.submission.evidence) { <div class="xs muted evidence">Submission evidence: {{ d.submission.evidence }}</div> }
+
+    <div class="split" style="margin-top:12px">
+      <div class="stack">
+        <section class="card">
+          <h2>Description</h2>
+          @if (d.description) { <p class="desc">{{ d.description }}</p> } @else { <p class="muted" style="margin:0">Not published — see the documents.</p> }
+          @if (d.specialConditions) { <div class="divider"></div><div class="section-title">Special conditions (as published)</div><p class="desc small">{{ d.specialConditions }}</p> }
+          @if (d.contactName || d.contactEmail || d.contactPhone) {
+            <div class="divider"></div><div class="section-title">Contact</div>
+            <div class="small">{{ d.contactName }} @if (d.contactEmail) { · <a [href]="'mailto:' + d.contactEmail">{{ d.contactEmail }}</a> } @if (d.contactPhone) { · {{ d.contactPhone }} }</div>
+          }
+        </section>
+
+        <section class="card">
+          <div class="row"><h2 style="margin:0">Requirements</h2><span class="spacer"></span>
+            @if (ui.aiStatus()?.classificationAvailable) {
+              <button mat-button class="ai-btn" (click)="classify()" [disabled]="busy() === 'classify'"><mat-icon>auto_awesome</mat-icon>Classify with AI</button>
+            }
+          </div>
+          @for (r of requirements(); track r.id) {
+            <div class="req">
+              <div class="row">
+                <span class="strong">{{ r.type | label }}</span>@if (r.value) { <span>{{ r.value }}</span> }
+                @if (r.mandatory) { <span class="pill danger">Mandatory</span> }
+                <span class="spacer"></span><span class="prov" [class]="r.provenance">{{ r.provenance }}</span>
+              </div>
+              @if (r.evidence) { <div class="xs muted quote">“{{ r.evidence }}”@if (r.documentTitle) { — {{ r.documentTitle }} }</div> }
+            </div>
+          } @empty {
+            <p class="muted small" style="margin:6px 0 0">No requirements identified yet. They are extracted from the tender documents —
+              use “Extract documents” below, then always confirm against the official documents.</p>
+          }
+        </section>
+
+        <section class="card">
+          <div class="row"><h2 style="margin:0">Documents ({{ documents().length }})</h2><span class="spacer"></span>
+            @if (documents().length) {
+              <button mat-button (click)="extractDocuments()" [disabled]="busy() === 'docs'"><mat-icon>document_scanner</mat-icon>Extract documents</button>
+              <button mat-icon-button (click)="reloadDocuments()" aria-label="Refresh"><mat-icon>refresh</mat-icon></button>
+            }
+          </div>
+          @for (doc of documents(); track doc.id) {
+            <div class="doc" [class.removed]="doc.removedAt">
+              <mat-icon>description</mat-icon>
+              <div class="grow">
+                <a [href]="doc.url" target="_blank" rel="noopener noreferrer">{{ doc.title ?? doc.url }}</a>
+                <div class="xs muted">{{ doc.documentType | label }}@if (doc.fileFormat) { · {{ doc.fileFormat.toUpperCase() }} }
+                  @if (doc.pageCount) { · {{ doc.pageCount }} pages }
+                  @if (doc.removedAt) { · removed from source {{ doc.removedAt | dateTime }} }</div>
+              </div>
+              <span class="pill" [class.ok]="doc.processingStatus === 'EXTRACTED'" [class.danger]="doc.processingStatus === 'FAILED'"
+                [matTooltip]="doc.processingError ?? ''">{{ doc.processingStatus | label }}</span>
+              @if (doc.originalStored) { <button mat-icon-button (click)="downloadOriginal(doc)" matTooltip="Download stored copy" aria-label="Download stored copy"><mat-icon>download</mat-icon></button> }
+            </div>
+          } @empty { <div class="muted small">No documents listed by the source.</div> }
+        </section>
+
+        <section class="card">
+          <h2>Change history</h2>
+          @for (c of history(); track c.id) {
+            <div class="change">
+              <div class="row"><span class="strong small">{{ c.fieldName | label }}</span>@if (c.material) { <span class="pill warn">Material</span> }
+                <span class="spacer"></span><span class="xs muted">{{ c.detectedAt | dateTime }}</span></div>
+              <div class="small">@if (c.oldValue) { <span class="muted">From</span> {{ c.oldValue }} } @if (c.newValue) { <span class="muted">to</span> {{ c.newValue }} }</div>
+            </div>
+          } @empty { <div class="muted small">No changes detected since discovery.</div> }
+        </section>
+      </div>
+
+      <aside class="stack">
+        @if (match(); as m) {
+          <section class="card">
+            <div class="row"><h2 style="margin:0">Match with your company</h2><span class="spacer"></span><span [class]="scoreClass(m)">{{ m.score }}</span></div>
+            <div class="small" style="margin:4px 0 8px"><span class="strong">{{ m.label | label }}</span> <span class="muted">· indicative, not eligibility</span></div>
+            @if (m.disqualifiers.length) {
+              <div class="error-banner small"><b>Possible disqualifiers</b>@for (x of m.disqualifiers; track x) { <div>• {{ x }}</div> }</div>
+            }
+            <div class="dims">
+              @for (k of ['services', 'industry', 'capability', 'geography', 'registrations', 'other']; track k) {
+                <div class="bar-row"><span class="name">{{ dimensionLabel(k) }}</span>
+                  <span class="bar-track"><span class="bar-fill" [style.width.%]="percent(m.dimensions[k] ?? 0)"></span></span>
+                  <span class="count">{{ percent(m.dimensions[k] ?? 0) }}%</span></div>
+              }
+            </div>
+            @if (m.matched.length) { <div class="section-title" style="margin-top:10px">Matched</div>@for (x of m.matched; track x) { <div class="small ok-line">✓ {{ x }}</div> } }
+            @if (m.missing.length) { <div class="section-title" style="margin-top:10px">Missing or unknown</div>@for (x of m.missing; track x) { <div class="small muted">• {{ x }}</div> } }
+            @if (m.aiExplanation; as a) {
+              <div class="ai-box">
+                <div class="row"><span class="prov AI">AI</span><span class="strong small">{{ a.recommendation | label }}</span></div>
+                <p class="small">{{ a.summary }}</p>
+                @if (a.strengths.length) { <div class="xs strong">Strengths</div>@for (x of a.strengths; track x) { <div class="small">• {{ x }}</div> } }
+                @if (a.gaps.length) { <div class="xs strong" style="margin-top:6px">Gaps</div>@for (x of a.gaps; track x) { <div class="small">• {{ x }}</div> } }
+                @if (a.questionsToClarify.length) { <div class="xs strong" style="margin-top:6px">Clarify</div>@for (x of a.questionsToClarify; track x) { <div class="small">• {{ x }}</div> } }
+                <div class="xs muted" style="margin-top:6px">{{ a.disclaimer }} {{ a.model }} · {{ a.generatedAt | dateTime }}</div>
+              </div>
+            } @else if (ui.aiStatus()?.matchExplanationAvailable) {
+              <button mat-stroked-button class="ai-btn full" style="margin-top:10px" (click)="explain()" [disabled]="busy() === 'explain'">
+                <mat-icon>auto_awesome</mat-icon>{{ busy() === 'explain' ? 'Assessing…' : 'Assess fit with AI' }}</button>
+            }
+          </section>
+        }
+
+        <section class="card">
+          <h2>Bid pipeline</h2>
+          @if (pipeline(); as p) {
+            <div class="stack-sm">
+              <mat-form-field appearance="outline" class="full"><mat-label>Stage</mat-label>
+                <mat-select [value]="p.item.stage" (selectionChange)="setStage($event.value)" [disabled]="!canEditPipeline">
+                  @for (st of stages; track st) { <mat-option [value]="st">{{ st | label }}</mat-option> }
+                </mat-select></mat-form-field>
+              <mat-form-field appearance="outline" class="full"><mat-label>Assigned to</mat-label>
+                <mat-select [value]="p.item.assignedTo" (selectionChange)="assign($event.value)" [disabled]="!canEditPipeline">
+                  <mat-option [value]="null">Unassigned</mat-option>
+                  @for (u of members(); track u.id) { <mat-option [value]="u.id">{{ u.fullName }}</mat-option> }
+                </mat-select></mat-form-field>
+            </div>
+            @if (canEditPipeline) {
+              <div class="section-title">Go / no-go</div>
+              @for (dec of p.decisions; track dec.id) { <div class="small"><span class="pill" [class.ok]="dec.decision === 'GO'" [class.danger]="dec.decision === 'NO_GO'">{{ dec.decision | label }}</span> {{ dec.decidedByName }} · {{ dec.decidedAt | dateTime }}@if (dec.rationale) { — {{ dec.rationale }} }</div> }
+              <div class="row" style="margin-top:6px">
+                <input class="inline" [(ngModel)]="decisionRationale" placeholder="Rationale" aria-label="Decision rationale" />
+                <button mat-stroked-button (click)="decide('GO')">Go</button><button mat-stroked-button (click)="decide('NO_GO')">No-go</button>
+              </div>
+            }
+            <div class="section-title" style="margin-top:12px">Tasks</div>
+            @for (t of p.tasks; track t.id) {
+              <label class="task"><input type="checkbox" [checked]="t.status === 'DONE'" (change)="completeTask(t.id, $any($event.target).checked)" [disabled]="!canEditPipeline" />
+                <span [class.done]="t.status === 'DONE'">{{ t.title }}</span><span class="spacer"></span><span class="xs muted">{{ t.dueAt | dateTime }}</span></label>
+            } @empty { <div class="xs muted">No tasks yet.</div> }
+            @if (canEditPipeline) {
+              <div class="row" style="margin-top:6px">
+                <input class="inline grow" [(ngModel)]="taskTitle" placeholder="New task" aria-label="Task title" (keydown.enter)="addTask()" />
+                <input class="inline" type="date" [(ngModel)]="taskDue" aria-label="Due date" />
+                <button mat-icon-button (click)="addTask()" aria-label="Add task"><mat-icon>add</mat-icon></button>
+              </div>
+            }
+            <div class="section-title" style="margin-top:12px">Internal notes</div>
+            @if (canEditPipeline) {
+              <textarea class="inline full" rows="2" [(ngModel)]="noteText" placeholder="Visible to your team only" aria-label="Note"></textarea>
+              <button mat-button (click)="addNote()" [disabled]="!noteText.trim()">Add note</button>
+            }
+            @for (n of p.notes; track n.id) { <div class="note"><div class="small">{{ n.body }}</div><div class="xs muted">{{ n.authorName }} · {{ n.createdAt | dateTime }}</div></div> }
+            <details style="margin-top:10px"><summary class="xs muted">Pipeline history ({{ p.history.length }})</summary>
+              @for (h of p.history; track $index) { <div class="xs">{{ h.occurredAt | dateTime }} · {{ h.eventType | label }} {{ h.toValue }} <span class="muted">{{ h.actorName }}</span></div> }
+            </details>
+          } @else {
+            <p class="muted small" style="margin:0 0 8px">Not in your pipeline. Track it to assign owners, tasks and a go/no-go decision.</p>
+            @if (canEditPipeline) { <button mat-flat-button (click)="shortlist()"><mat-icon>bookmark_add</mat-icon>Add to pipeline</button> }
+          }
+        </section>
+
+        <section class="card">
+          <h2>Source evidence</h2>
+          <dl class="kv small">
+            <dt>Source</dt><dd>{{ d.evidence.sourceName }} <span class="muted">({{ d.evidence.sourceStatus | label }})</span></dd>
+            <dt>Original</dt><dd><a [href]="d.evidence.sourceUrl" target="_blank" rel="noopener noreferrer" class="mono">{{ d.evidence.sourceUrl }}</a></dd>
+            @if (d.evidence.evidenceUrl && d.evidence.evidenceUrl !== d.evidence.sourceUrl) {
+              <dt>Read from</dt><dd><a [href]="d.evidence.evidenceUrl" target="_blank" rel="noopener noreferrer" class="mono">{{ d.evidence.evidenceUrl }}</a></dd>
+            }
+            <dt>Discovered</dt><dd>{{ d.evidence.firstDiscoveredAt | dateTime }}</dd>
+            <dt>Last checked</dt><dd>{{ d.evidence.lastCheckedAt | dateTime }}</dd>
+            <dt>Last changed</dt><dd>{{ d.evidence.lastChangedAt ? (d.evidence.lastChangedAt | dateTime) : 'No changes' }}</dd>
+            @if (d.evidence.closingRaw) { <dt>Closing as published</dt><dd class="mono">{{ d.evidence.closingRaw }}</dd> }
+            @if (d.evidence.licenceNotes) { <dt>Licence</dt><dd class="xs">{{ d.evidence.licenceNotes }}</dd> }
+          </dl>
+        </section>
+      </aside>
+    </div>
+  }
+</div>

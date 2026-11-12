@@ -1,0 +1,115 @@
+spring:
+  application:
+    name: oip-backend
+  datasource:
+    url: ${OIP_DB_URL:jdbc:postgresql://localhost:5432/oip}
+    username: ${OIP_DB_USERNAME:oip}
+    password: ${OIP_DB_PASSWORD:}
+    hikari:
+      maximum-pool-size: ${OIP_DB_POOL_SIZE:10}
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: UTC
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+  servlet:
+    multipart:
+      max-file-size: ${OIP_MAX_UPLOAD_SIZE:25MB}
+      max-request-size: ${OIP_MAX_UPLOAD_SIZE:25MB}
+  mail:
+    host: ${OIP_MAIL_HOST:localhost}
+    port: ${OIP_MAIL_PORT:1025}
+    username: ${OIP_MAIL_USERNAME:}
+    password: ${OIP_MAIL_PASSWORD:}
+  jackson:
+    default-property-inclusion: always
+
+server:
+  port: ${OIP_PORT:8080}
+  shutdown: graceful
+  error:
+    include-stacktrace: never
+    include-message: never
+  forward-headers-strategy: ${OIP_FORWARD_HEADERS_STRATEGY:none}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      show-details: when-authorized
+      roles: PLATFORM_ADMIN
+      probes:
+        enabled: true
+  health:
+    mail:
+      enabled: false
+
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+
+logging:
+  structured:
+    format:
+      console: ${OIP_LOG_FORMAT:}
+  level:
+    za.co.oip: ${OIP_LOG_LEVEL:INFO}
+
+oip:
+  security:
+    jwt-secret: ${OIP_JWT_SECRET:}
+    access-token-ttl: ${OIP_ACCESS_TOKEN_TTL:PT15M}
+    refresh-token-ttl: ${OIP_REFRESH_TOKEN_TTL:P14D}
+    auth-requests-per-minute: ${OIP_AUTH_RATE_LIMIT_PER_MINUTE:30}
+    # Refresh-token cookie is Secure (HTTPS only) by default; set false only for plain-HTTP local development.
+    secure-cookies: ${OIP_SECURE_COOKIES:true}
+  app-url: ${OIP_APP_URL:http://localhost:4200}
+  ai:
+    # Optional. Without a key, AI features report themselves unavailable. Model/effort are set in the admin UI.
+    anthropic-api-key: ${ANTHROPIC_API_KEY:}
+    base-url: ${OIP_AI_BASE_URL:}
+  mail:
+    enabled: ${OIP_MAIL_ENABLED:false}
+    from: ${OIP_MAIL_FROM:no-reply@oip.local}
+  documents:
+    storage-dir: ${OIP_STORAGE_DIR:./data/storage}
+    processing-enabled: ${OIP_DOCUMENTS_PROCESSING_ENABLED:true}
+    batch-size: ${OIP_DOCUMENTS_BATCH_SIZE:10}
+    original-retention-days: ${OIP_DOCUMENTS_RETENTION_DAYS:90}
+  cors:
+    allowed-origins: ${OIP_CORS_ALLOWED_ORIGINS:http://localhost:4200}
+  crawler:
+    # Identify the crawler honestly; set OIP_CRAWLER_USER_AGENT to include a contact URL for source operators.
+    user-agent: ${OIP_CRAWLER_USER_AGENT:OIP-Crawler/0.1 (+https://example.invalid/crawler)}
+    scheduler-enabled: ${OIP_CRAWLER_SCHEDULER_ENABLED:true}
+    max-concurrent-crawls: ${OIP_CRAWLER_MAX_CONCURRENT:2}
+    request-timeout: ${OIP_CRAWLER_REQUEST_TIMEOUT:PT30S}
+    max-response-bytes: ${OIP_CRAWLER_MAX_RESPONSE_BYTES:15728640}
+    lease-duration: PT30M
+    allow-private-networks: false
+    snapshot-excerpt-chars: 20000
+    trust:
+      # Reviewed public intermediates for sites that omit them from their TLS handshake (browsers fetch them via AIA).
+      # Used only for the listed hosts; the chain must still reach a JDK-trusted root and the hostname is verified.
+      additional-intermediates:
+        - hosts: [www.dlrrd.gov.za, dlrrd.gov.za]
+          certificate: classpath:crawler-trust/sectigo-public-server-authentication-ca-ov-r36.pem
+          sha256: 6542D176BED50F193C0CE297AE44ECD8A0A86BEC2EDE682769344059B4E78530
+          reason: dlrrd.gov.za omits its issuing CA (checked 2026-11-12); certificate from http://crt.sectigo.com/SectigoPublicServerAuthenticationCAOVR36.crt (the site's AIA URL), verified to chain to Sectigo Root R46 / USERTrust RSA.
+    poll-interval: PT1M
+    initial-delay: PT1M
+  bootstrap:
+    admin-email: ${OIP_BOOTSTRAP_ADMIN_EMAIL:}
+    admin-password: ${OIP_BOOTSTRAP_ADMIN_PASSWORD:}
+    admin-tenant-name: ${OIP_BOOTSTRAP_ADMIN_TENANT:Platform Operations}

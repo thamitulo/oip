@@ -1,0 +1,29 @@
+oip:
+  ai:
+    anthropic-api-key: ""
+  security:
+    jwt-secret: test-secret-that-is-at-least-32-characters-long
+    auth-requests-per-minute: 0
+    secure-cookies: false
+  crawler:
+    scheduler-enabled: false
+    # Tests crawl local fixture servers on 127.0.0.1.
+    allow-private-networks: true
+    request-timeout: PT5S
+  opportunities:
+    expiry-interval: PT24H
+  matching:
+    background-enabled: false
+  notifications:
+    jobs-enabled: false
+  documents:
+    processing-enabled: false
+    storage-dir: target/test-storage
+  bootstrap:
+    admin-email: ""
+    admin-password: ""
+
+logging:
+  level:
+    za.co.oip: INFO
+    org.testcontainers: WARN

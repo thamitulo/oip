@@ -1,0 +1,187 @@
+@use '@angular/material' as mat;
+
+// ===========================================================================
+// OIP design system — compact, modern B2B. Material 3 drives components;
+// --oip-* tokens drive layout, status colours and typography scale.
+// ===========================================================================
+html {
+  height: 100%;
+  color-scheme: light;
+  @include mat.theme((
+    color: (primary: mat.$cyan-palette, tertiary: mat.$violet-palette),
+    typography: (plain-family: 'Inter, system-ui, -apple-system, Segoe UI, sans-serif',
+                 brand-family: 'Inter, system-ui, -apple-system, Segoe UI, sans-serif'),
+    density: -3,
+  ));
+  @include mat.form-field-overrides((outlined-outline-color: #d4d9e1, container-vertical-padding: 8px));
+  @include mat.button-overrides((filled-container-shape: 8px, outlined-container-shape: 8px, text-container-shape: 8px));
+
+  --oip-bg: #f6f7f9;
+  --oip-surface: #ffffff;
+  --oip-subtle: #f1f3f6;
+  --oip-border: #e4e7ec;
+  --oip-border-strong: #d0d5dd;
+  --oip-ink: #101828;
+  --oip-ink-2: #344054;
+  --oip-muted: #667085;
+  --oip-brand: #0e7490;
+  --oip-brand-soft: #ecfeff;
+  --oip-ai: #6d28d9;
+  --oip-ai-soft: #f5f3ff;
+  --oip-ok: #067647;
+  --oip-ok-bg: #ecfdf3;
+  --oip-warn: #b54708;
+  --oip-warn-bg: #fffaeb;
+  --oip-danger: #b42318;
+  --oip-danger-bg: #fef3f2;
+  --oip-info: #175cd3;
+  --oip-info-bg: #eff8ff;
+  --oip-radius: 10px;
+  --oip-shadow: 0 1px 2px rgba(16, 24, 40, .05);
+  font-size: 13px;
+}
+
+body {
+  margin: 0;
+  height: 100%;
+  background: var(--oip-bg);
+  color: var(--oip-ink);
+  font-family: Inter, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  font-size: 13px;
+  line-height: 1.45;
+  -webkit-font-smoothing: antialiased;
+}
+
+a { color: var(--oip-brand); text-decoration: none; }
+a:hover { text-decoration: underline; }
+h1, h2, h3 { letter-spacing: -0.01em; }
+
+// ---------------------------------------------------------------------------
+// Layout
+// ---------------------------------------------------------------------------
+.page { padding: 20px 24px 40px; max-width: 1400px; margin: 0 auto; box-sizing: border-box; }
+.page-header { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 18px; }
+.page-header h1 { font-size: 22px; font-weight: 650; margin: 0; letter-spacing: -0.02em; }
+.page-header p { margin: 4px 0 0; color: var(--oip-muted); }
+.card { background: var(--oip-surface); border: 1px solid var(--oip-border); border-radius: var(--oip-radius); padding: 16px; box-shadow: var(--oip-shadow); }
+.card h2 { font-size: 14px; font-weight: 600; margin: 0 0 12px; }
+.section-title { font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--oip-muted); margin: 0 0 8px; }
+.grid { display: grid; gap: 12px; }
+.grid-2 { grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); }
+.grid-3 { grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
+.grid-stats { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
+.split { display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 12px; align-items: start; }
+.stack { display: flex; flex-direction: column; gap: 10px; }
+.stack-sm { display: flex; flex-direction: column; gap: 6px; }
+.row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.spacer { flex: 1; }
+.muted { color: var(--oip-muted); }
+.small { font-size: 12px; }
+.xs { font-size: 11px; }
+.strong { font-weight: 600; }
+.mono { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 12px; }
+.full { width: 100%; }
+.nowrap { white-space: nowrap; }
+.truncate { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.empty { padding: 32px 16px; text-align: center; color: var(--oip-muted); }
+.divider { border-top: 1px solid var(--oip-border); margin: 10px 0; }
+.banner { border-radius: 8px; padding: 10px 12px; font-size: 12.5px; }
+.error-banner { @extend .banner; background: var(--oip-danger-bg); color: var(--oip-danger); }
+.info-banner { @extend .banner; background: var(--oip-info-bg); color: var(--oip-info); }
+.warn-banner { @extend .banner; background: var(--oip-warn-bg); color: var(--oip-warn); }
+.ai-banner { @extend .banner; background: var(--oip-ai-soft); color: var(--oip-ai); }
+
+dl.kv { display: grid; grid-template-columns: minmax(120px, 180px) 1fr; gap: 6px 14px; margin: 0; }
+dl.kv dt { color: var(--oip-muted); }
+dl.kv dd { margin: 0; overflow-wrap: anywhere; }
+
+// ---------------------------------------------------------------------------
+// Pills / badges
+// ---------------------------------------------------------------------------
+.pill {
+  display: inline-flex; align-items: center; gap: 4px; padding: 1px 8px; height: 20px; border-radius: 999px;
+  font-size: 11.5px; font-weight: 500; white-space: nowrap; background: var(--oip-subtle); color: var(--oip-ink-2);
+  border: 1px solid transparent; box-sizing: border-box;
+}
+.pill.ok { background: var(--oip-ok-bg); color: var(--oip-ok); }
+.pill.warn { background: var(--oip-warn-bg); color: var(--oip-warn); }
+.pill.danger { background: var(--oip-danger-bg); color: var(--oip-danger); }
+.pill.info { background: var(--oip-info-bg); color: var(--oip-info); }
+.pill.brand { background: var(--oip-brand-soft); color: var(--oip-brand); }
+.pill.ai { background: var(--oip-ai-soft); color: var(--oip-ai); }
+.pill.outline { background: transparent; border-color: var(--oip-border-strong); }
+.pill mat-icon, .pill .mat-icon { font-size: 13px; width: 13px; height: 13px; }
+
+.score { display: inline-grid; place-items: center; min-width: 34px; height: 22px; padding: 0 6px; border-radius: 6px;
+  font-weight: 600; font-size: 12px; font-variant-numeric: tabular-nums; }
+.score.strong { background: var(--oip-ok-bg); color: var(--oip-ok); }
+.score.possible { background: var(--oip-info-bg); color: var(--oip-info); }
+.score.weak { background: var(--oip-subtle); color: var(--oip-muted); }
+.score.review { background: var(--oip-warn-bg); color: var(--oip-warn); }
+
+// Provenance tags make it obvious what was published vs derived.
+.prov { font-size: 10px; font-weight: 600; letter-spacing: .04em; padding: 0 5px; border-radius: 4px; text-transform: uppercase; }
+.prov.SOURCE, .prov.SOURCE_POLICY { background: var(--oip-ok-bg); color: var(--oip-ok); }
+.prov.DOCUMENT { background: var(--oip-info-bg); color: var(--oip-info); }
+.prov.AI { background: var(--oip-ai-soft); color: var(--oip-ai); }
+.prov.HUMAN { background: var(--oip-subtle); color: var(--oip-ink-2); }
+
+// ---------------------------------------------------------------------------
+// Stats, bars, tables
+// ---------------------------------------------------------------------------
+.stat { background: var(--oip-surface); border: 1px solid var(--oip-border); border-radius: var(--oip-radius); padding: 12px 14px; box-shadow: var(--oip-shadow); }
+.stat { position: relative; padding: 14px 16px; }
+.stat .value { font-size: 24px; font-weight: 600; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+.stat .label { color: var(--oip-muted); font-size: 12px; margin-top: 2px; }
+a.stat { color: inherit; text-decoration: none; transition: border-color .15s; }
+a.stat:hover { border-color: var(--oip-brand); text-decoration: none; }
+
+.bars { display: flex; flex-direction: column; gap: 8px; }
+.bar-row { display: grid; grid-template-columns: minmax(110px, 38%) 1fr 48px; gap: 10px; align-items: center; font-size: 12.5px; }
+.bar-row .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--oip-ink-2); }
+.bar-track { display: block; height: 8px; background: var(--oip-subtle); border-radius: 3px; overflow: hidden; }
+.bar-fill { display: block; height: 100%; min-width: 2px; background: linear-gradient(90deg, #0e7490, #22a3bf); border-radius: 4px; }
+.bar-row .count { text-align: right; font-variant-numeric: tabular-nums; color: var(--oip-muted); }
+
+table.data { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+table.data th { text-align: left; font-weight: 500; color: var(--oip-muted); font-size: 11.5px; padding: 8px 10px;
+  border-bottom: 1px solid var(--oip-border); background: #fafbfc; position: sticky; top: 0; }
+table.data td { padding: 8px 10px; border-bottom: 1px solid var(--oip-border); vertical-align: middle; }
+table.data tr:last-child td { border-bottom: none; }
+table.data tr.clickable { cursor: pointer; }
+table.data tr.clickable:hover td { background: #f9fafb; }
+.table-scroll { overflow-x: auto; }
+.num { text-align: right; font-variant-numeric: tabular-nums; }
+
+// List rows (compact opportunity list)
+.list { background: var(--oip-surface); border: 1px solid var(--oip-border); border-radius: var(--oip-radius); box-shadow: var(--oip-shadow); overflow: hidden; }
+.list > * + * { border-top: 1px solid var(--oip-border); }
+
+// Auth pages
+.auth-wrap { min-height: 100%; display: grid; place-items: center; padding: 24px 16px; box-sizing: border-box;
+  background: radial-gradient(1200px 600px at 10% -10%, #e0f2fe 0, transparent 60%), var(--oip-bg); }
+.auth-card { width: 100%; max-width: 400px; padding: 24px; }
+.brand-mark { display: flex; align-items: center; gap: 8px; font-weight: 600; font-size: 15px; color: var(--oip-ink); margin-bottom: 12px; }
+.brand-mark .logo { display: grid; place-items: center; width: 26px; height: 26px; border-radius: 7px; background: var(--oip-brand); color: #fff; }
+.brand-mark .logo mat-icon { font-size: 16px; width: 16px; height: 16px; }
+
+// Markdown rendered from the assistant
+.md p { margin: 0 0 8px; }
+.md ul, .md ol { margin: 0 0 8px; padding-left: 18px; }
+.md li { margin: 2px 0; }
+.md code { background: var(--oip-subtle); padding: 0 4px; border-radius: 4px; font-size: 12px; }
+.md strong { font-weight: 600; }
+
+// Material tweaks for density
+.mat-mdc-form-field { --mat-form-field-container-text-size: 13px; }
+.mat-mdc-form-field-subscript-wrapper { font-size: 11px; }
+.mat-mdc-tab-header { border-bottom: 1px solid var(--oip-border); }
+.mdc-button { letter-spacing: 0 !important; }
+.mat-mdc-menu-panel { border-radius: 10px !important; }
+
+@media (max-width: 1100px) { .split { grid-template-columns: 1fr; } }
+@media (max-width: 640px) {
+  .page { padding: 14px 14px 32px; }
+  dl.kv { grid-template-columns: 1fr; }
+  dl.kv dt { margin-top: 6px; }
+}

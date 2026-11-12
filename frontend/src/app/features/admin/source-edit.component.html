@@ -1,0 +1,116 @@
+<div class="page">
+  <a mat-button routerLink="/admin/sources"><mat-icon>arrow_back</mat-icon>Sources</a>
+  <div class="page-header" style="margin-top:8px">
+    <div>
+      <h1>{{ source()?.name ?? 'New source' }}</h1>
+      @if (source(); as s) {
+        <p>Last verified {{ s.lastVerifiedAt | dateTime }} · last successful crawl {{ s.lastSuccessfulCrawlAt | dateTime }}
+          · next crawl {{ s.nextCrawlAt | dateTime }}</p>
+      }
+    </div>
+    @if (source(); as s) {
+      <div class="row">
+        <button mat-stroked-button (click)="test()" [disabled]="busy() || s.crawlBlockers.length > 0"><mat-icon>science</mat-icon>Test source</button>
+        <button mat-flat-button (click)="crawl()" [disabled]="busy() || s.crawlBlockers.length > 0"><mat-icon>play_arrow</mat-icon>Crawl now</button>
+      </div>
+    }
+  </div>
+  @if (busy()) { <mat-progress-bar mode="indeterminate" /> }
+  @if (error()) { <div class="error-banner" style="margin-bottom:12px" role="alert">{{ error() }}</div> }
+  @if (source()?.crawlBlockers?.length) {
+    <div class="warn-banner" style="margin-bottom:12px">
+      <strong>Automated collection is not permitted yet:</strong>
+      <ul style="margin:4px 0 0">@for (b of source()!.crawlBlockers; track b) { <li>{{ b }}</li> }</ul>
+    </div>
+  }
+
+  @if (dryRun(); as r) {
+    <section class="card" style="margin-bottom:16px">
+      <h2>Test result: <span class="pill" [class.ok]="r.outcome.startsWith('SUCCESS')" [class.danger]="!r.outcome.startsWith('SUCCESS')">{{ r.outcome | label }}</span></h2>
+      <p class="muted" style="margin-top:0">{{ r.recordsFound }} records parsed, {{ r.itemErrors.length }} item errors. Nothing was stored.
+        @if (r.message) { <br />{{ r.message }} }</p>
+      @if (r.preview.length) {
+        <div class="table-scroll"><table class="data">
+          <thead><tr><th>Reference</th><th>Title</th><th>Type</th><th>Status</th><th>Closing</th></tr></thead>
+          <tbody>@for (p of r.preview; track $index) {
+            <tr><td class="mono">{{ p.referenceNumber ?? '—' }}</td><td><a [href]="p.sourceUrl" target="_blank" rel="noopener noreferrer">{{ p.title }}</a></td>
+              <td>{{ p.eventType | label }}</td><td>{{ p.status | label }}</td><td>{{ p.closingDate ?? '—' }}</td></tr>
+          }</tbody>
+        </table></div>
+      }
+      @for (e of r.itemErrors.slice(0, 10); track $index) { <div class="small" style="color:var(--oip-danger)">{{ e.errorType }}: {{ e.message }}</div> }
+      @if (r.log.length) { <div class="log mono" style="margin-top:10px">{{ r.log.join('\n') }}</div> }
+    </section>
+  }
+
+  <form [formGroup]="form" (ngSubmit)="save()" class="stack">
+    <section class="card">
+      <h2>Source</h2>
+      <div class="fields">
+        <mat-form-field appearance="outline"><mat-label>Name</mat-label><input matInput formControlName="name" /></mat-form-field>
+        <mat-form-field appearance="outline"><mat-label>Organisation</mat-label>
+          <mat-select formControlName="organisationId"><mat-option [value]="null">—</mat-option>
+            @for (org of organisations(); track org.id) { <mat-option [value]="org.id">{{ org.name }}</mat-option> }</mat-select></mat-form-field>
+        <mat-form-field appearance="outline" style="grid-column: 1 / -1"><mat-label>Source URL</mat-label><input matInput formControlName="sourceUrl" />
+          <mat-hint>Only URLs that have been verified to exist. Never guess a URL.</mat-hint></mat-form-field>
+        @for (f of [['sourceType','Source type'],['sector','Sector'],['accessMethod','Access method']]; track f[0]) {
+          <mat-form-field appearance="outline"><mat-label>{{ f[1] }}</mat-label>
+            <mat-select [formControlName]="f[0]">@for (v of $any(o)[f[0]]; track v) { <mat-option [value]="v">{{ v | label }}</mat-option> }</mat-select></mat-form-field>
+        }
+        <mat-form-field appearance="outline"><mat-label>Industry</mat-label><input matInput formControlName="industry" /></mat-form-field>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Access, permission and verification</h2>
+      <div class="fields">
+        @for (f of [['integrationStatus','Integration status'],['robotsPolicy','robots.txt policy'],['termsReviewStatus','Terms-of-use review'],['reliability','Reliability']]; track f[0]) {
+          <mat-form-field appearance="outline"><mat-label>{{ f[1] }}</mat-label>
+            <mat-select [formControlName]="f[0]">@for (v of $any(o)[f[0]]; track v) { <mat-option [value]="v">{{ v | label }}</mat-option> }</mat-select></mat-form-field>
+        }
+        <mat-form-field appearance="outline"><mat-label>Authentication required</mat-label>
+          <mat-select formControlName="authenticationRequired"><mat-option [value]="null">Unknown</mat-option><mat-option [value]="true">Yes</mat-option><mat-option [value]="false">No</mat-option></mat-select></mat-form-field>
+        <mat-form-field appearance="outline"><mat-label>Publicly accessible</mat-label>
+          <mat-select formControlName="publiclyAccessible"><mat-option [value]="null">Unknown</mat-option><mat-option [value]="true">Yes</mat-option><mat-option [value]="false">No</mat-option></mat-select></mat-form-field>
+      </div>
+      <mat-form-field appearance="outline" class="full"><mat-label>Licence / access restrictions</mat-label><textarea matInput rows="2" formControlName="licenceNotes"></textarea></mat-form-field>
+      <mat-form-field appearance="outline" class="full"><mat-label>Verification notes</mat-label><textarea matInput rows="2" formControlName="verificationNotes"></textarea></mat-form-field>
+      <mat-checkbox formControlName="markVerified">I have verified this source's details today</mat-checkbox>
+    </section>
+
+    <section class="card">
+      <h2>Crawling</h2>
+      <div class="fields">
+        <mat-form-field appearance="outline"><mat-label>Adapter</mat-label>
+          <mat-select formControlName="adapterType"><mat-option [value]="null">None</mat-option>
+            @for (v of o.adapterType; track v) { <mat-option [value]="v">{{ v | label }}</mat-option> }</mat-select></mat-form-field>
+        <mat-form-field appearance="outline"><mat-label>Crawl interval (minutes)</mat-label><input matInput type="number" formControlName="crawlIntervalMinutes" />
+          <mat-hint>1440 = daily</mat-hint></mat-form-field>
+        <mat-form-field appearance="outline"><mat-label>Rate limit (requests/minute)</mat-label><input matInput type="number" formControlName="rateLimitPerMinute" /></mat-form-field>
+        <mat-form-field appearance="outline"><mat-label>Priority (1 = highest)</mat-label><input matInput type="number" formControlName="priority" /></mat-form-field>
+      </div>
+      <mat-form-field appearance="outline" class="full"><mat-label>Parser configuration (JSON)</mat-label>
+        <textarea matInput rows="10" class="mono" formControlName="parserConfig"></textarea></mat-form-field>
+      <mat-checkbox formControlName="enabled">Enabled for scheduled crawling</mat-checkbox>
+      <p class="muted small">A source can only be enabled when its status permits automated collection, robots.txt does not
+        disallow it, its terms are not prohibitive, and an implemented adapter is configured.</p>
+    </section>
+
+    <div class="row" style="justify-content:flex-end"><button mat-flat-button type="submit" [disabled]="busy()">Save source</button></div>
+  </form>
+
+  @if (source(); as s) {
+    <section class="card" style="margin-top:16px">
+      <div class="row"><h2 style="margin:0">Recent crawls</h2><span class="spacer"></span>
+        <button mat-button (click)="loadRuns(s.id)"><mat-icon>refresh</mat-icon>Refresh</button></div>
+      <div class="table-scroll"><table class="data">
+        <thead><tr><th>Started</th><th>Trigger</th><th>Outcome</th><th>Found</th><th>New</th><th>Updated</th><th>Rejected</th></tr></thead>
+        <tbody>@for (r of runs(); track r.id) {
+          <tr class="clickable" [routerLink]="['/admin/crawls', r.id]"><td>{{ r.startedAt | dateTime }}</td><td>{{ r.trigger | label }}</td>
+            <td>{{ r.outcome ? (r.outcome | label) : 'Running' }}</td><td>{{ r.recordsFound }}</td><td>{{ r.recordsDiscovered }}</td>
+            <td>{{ r.recordsUpdated }}</td><td>{{ r.recordsRejected }}</td></tr>
+        } @empty { <tr><td colspan="7" class="muted">No crawls yet.</td></tr> }</tbody>
+      </table></div>
+    </section>
+  }
+</div>

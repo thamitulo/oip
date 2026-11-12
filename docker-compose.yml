@@ -1,0 +1,74 @@
+# Local development stack for the Opportunity Intelligence Platform.
+#   cp .env.example .env   # then set OIP_DB_PASSWORD, OIP_JWT_SECRET and the bootstrap admin
+#   docker compose up --build
+# Frontend: http://localhost:4200   API: http://localhost:8080   API docs: http://localhost:4200/swagger-ui.html
+# Local mail (notifications): http://localhost:8025
+name: oip
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: oip
+      POSTGRES_USER: oip
+      POSTGRES_PASSWORD: ${OIP_DB_PASSWORD:?Set OIP_DB_PASSWORD in .env}
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - oip-postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U oip -d oip"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  backend:
+    build: ./backend
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      OIP_DB_URL: jdbc:postgresql://postgres:5432/oip
+      OIP_DB_USERNAME: oip
+      OIP_DB_PASSWORD: ${OIP_DB_PASSWORD}
+      OIP_JWT_SECRET: ${OIP_JWT_SECRET:?Set OIP_JWT_SECRET in .env}
+      OIP_CORS_ALLOWED_ORIGINS: ${OIP_CORS_ALLOWED_ORIGINS:-http://localhost:4200}
+      OIP_BOOTSTRAP_ADMIN_EMAIL: ${OIP_BOOTSTRAP_ADMIN_EMAIL:-}
+      OIP_BOOTSTRAP_ADMIN_PASSWORD: ${OIP_BOOTSTRAP_ADMIN_PASSWORD:-}
+      OIP_CRAWLER_SCHEDULER_ENABLED: ${OIP_CRAWLER_SCHEDULER_ENABLED:-false}
+      OIP_CRAWLER_USER_AGENT: ${OIP_CRAWLER_USER_AGENT:-OIP-Crawler/0.1 (+https://example.invalid/crawler)}
+      OIP_LOG_FORMAT: ${OIP_LOG_FORMAT:-}
+      # Local stack runs over plain HTTP; production must keep secure cookies (the default).
+      OIP_SECURE_COOKIES: ${OIP_SECURE_COOKIES:-false}
+      OIP_APP_URL: ${OIP_APP_URL:-http://localhost:4200}
+      OIP_STORAGE_DIR: /data/storage
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      OIP_MAIL_ENABLED: ${OIP_MAIL_ENABLED:-true}
+      OIP_MAIL_HOST: ${OIP_MAIL_HOST:-mailpit}
+      OIP_MAIL_PORT: ${OIP_MAIL_PORT:-1025}
+    volumes:
+      - oip-storage:/data/storage
+    ports:
+      - "127.0.0.1:8080:8080"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8080/actuator/health/readiness | grep -q UP"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+
+  mailpit:
+    image: axllent/mailpit:v1.27
+    ports:
+      - "127.0.0.1:8025:8025"
+
+  frontend:
+    build: ./frontend
+    depends_on:
+      backend:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:4200:80"
+
+volumes:
+  oip-postgres:
+  oip-storage:

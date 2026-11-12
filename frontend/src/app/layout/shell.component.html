@@ -1,0 +1,86 @@
+<mat-sidenav-container class="shell" autosize>
+  <mat-sidenav [mode]="isMobile() ? 'over' : 'side'" [opened]="!isMobile() || navOpen()" (closedStart)="navOpen.set(false)" class="sidenav">
+    <a class="brand" routerLink="/dashboard">
+      <span class="logo"><mat-icon>radar</mat-icon></span>
+      <span>Opportunity<br /><b>Intelligence</b></span>
+    </a>
+
+    <nav aria-label="Main">
+      @for (group of [{ title: 'Discover', items: discover }, { title: 'Work', items: work }, { title: 'Company', items: company }]; track group.title) {
+        <div class="group">{{ group.title }}</div>
+        @for (item of group.items; track item.link) {
+          <a class="nav-item" [routerLink]="item.link" routerLinkActive="active">
+            <mat-icon>{{ item.icon }}</mat-icon><span>{{ item.label }}</span>
+            @if (item.link === '/notifications' && ui.unread()) { <span class="count">{{ ui.unread() }}</span> }
+          </a>
+        }
+      }
+      @if (auth.isPlatformAdmin()) {
+        <div class="group">Administration</div>
+        @for (item of admin; track item.link) {
+          <a class="nav-item" [routerLink]="item.link" routerLinkActive="active"><mat-icon>{{ item.icon }}</mat-icon><span>{{ item.label }}</span></a>
+        }
+      }
+    </nav>
+
+    <div class="tenant-card">
+      <div class="xs muted">Signed in to</div>
+      <div class="strong truncate">{{ auth.user()?.tenantName }}</div>
+    </div>
+  </mat-sidenav>
+
+  <mat-sidenav-content class="content" [class.with-assistant]="ui.assistantOpen() && !isMobile()">
+    <header class="topbar">
+      @if (isMobile()) {
+        <button mat-icon-button (click)="navOpen.set(true)" aria-label="Open navigation"><mat-icon>menu</mat-icon></button>
+      }
+      <form class="search" (ngSubmit)="doSearch()" role="search">
+        <mat-icon>search</mat-icon>
+        <input [(ngModel)]="search" name="q" placeholder="Search tenders, reference numbers, organisations…" aria-label="Search opportunities" />
+        <kbd>Enter</kbd>
+      </form>
+      <span class="spacer"></span>
+
+      <button mat-stroked-button class="ask-ai" (click)="ui.assistantOpen.set(!ui.assistantOpen())" [class.on]="ui.assistantOpen()">
+        <mat-icon>auto_awesome</mat-icon>Ask AI
+      </button>
+
+      <button mat-icon-button [matMenuTriggerFor]="notifMenu" (menuOpened)="loadNotifications()" aria-label="Notifications" matTooltip="Notifications">
+        <mat-icon [matBadge]="ui.unread() || null" matBadgeSize="small" matBadgeColor="warn">notifications</mat-icon>
+      </button>
+      <mat-menu #notifMenu="matMenu" xPosition="before" class="notif-menu">
+        <div class="menu-head row" (click)="$event.stopPropagation()">
+          <span class="strong">Notifications</span><span class="spacer"></span>
+          <button mat-button (click)="markAllRead()" [disabled]="!ui.unread()">Mark all read</button>
+        </div>
+        @for (n of notifications(); track n.id) {
+          <button mat-menu-item class="notif" [class.unread]="!n.readAt" (click)="openNotification(n)">
+            <div class="truncate strong small">{{ n.title }}</div>
+            <div class="xs muted">{{ n.type | label }} · {{ n.createdAt | dateTime }}</div>
+          </button>
+        } @empty { <div class="xs muted" style="padding:10px 16px">You're all caught up.</div> }
+        <a mat-menu-item routerLink="/notifications" class="small">View all</a>
+      </mat-menu>
+
+      <button mat-button [matMenuTriggerFor]="userMenu" class="user-btn" aria-label="Account">
+        <span class="avatar">{{ initials() }}</span>
+      </button>
+      <mat-menu #userMenu="matMenu" xPosition="before">
+        <div class="menu-head">
+          <div class="strong">{{ auth.user()?.fullName }}</div>
+          <div class="xs muted">{{ auth.user()?.email }}</div>
+          <div class="xs muted">{{ auth.user()?.role | label }}@if (auth.isPlatformAdmin()) { · Platform admin }</div>
+        </div>
+        <a mat-menu-item routerLink="/settings"><mat-icon>tune</mat-icon>Settings & privacy</a>
+        <button mat-menu-item (click)="auth.logout()"><mat-icon>logout</mat-icon>Sign out</button>
+      </mat-menu>
+    </header>
+
+    <main><router-outlet /></main>
+  </mat-sidenav-content>
+
+  <mat-sidenav position="end" [mode]="isMobile() ? 'over' : 'side'" [opened]="ui.assistantOpen()" (closedStart)="ui.assistantOpen.set(false)"
+    class="assistant" [disableClose]="!isMobile()">
+    @if (ui.assistantOpen()) { <app-assistant-panel /> }
+  </mat-sidenav>
+</mat-sidenav-container>
