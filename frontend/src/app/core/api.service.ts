@@ -4,7 +4,7 @@ import { Observable } from 'rxjs';
 import {
   AiSettings, AiStatus, AppNotification, AssistantMessage, AssistantReply, CompanyDocument, Conversation, Match,
   MatchSettings, NotificationPreferences, PipelineDetail, PipelineItem, Recommended, Requirement, Stage, Task,
-  ChangeEvent, CompanyProfile, CrawlError, CrawlRun, CrawlRunDetail, Dashboard, DryRunResult, Member,
+  AddMemberResult, TokenInfo, OrganisationRequest, ChannelRequest, SupplierPlatformSummary, ChangeEvent, CompanyProfile, CrawlError, CrawlRun, CrawlRunDetail, Dashboard, DryRunResult, Member,
   OpportunityDetail, OpportunityQuery, OpportunitySummary, OrganisationDetail, OrganisationSummary, Page,
   Problem, Sector, Source, SourceHealth,
 } from './models';
@@ -35,6 +35,24 @@ export class ApiService {
   organisations(params: { sector?: Sector; q?: string; page?: number; size?: number }): Observable<Page<OrganisationSummary>> {
     return this.http.get<Page<OrganisationSummary>>('/api/v1/organisations', { params: toParams(params) });
   }
+  supplierPlatforms(): Observable<SupplierPlatformSummary[]> {
+    return this.http.get<SupplierPlatformSummary[]>('/api/v1/supplier-platforms');
+  }
+  createOrganisation(body: OrganisationRequest): Observable<OrganisationDetail> {
+    return this.http.post<OrganisationDetail>('/api/v1/admin/organisations', body);
+  }
+  updateOrganisation(id: string, body: OrganisationRequest): Observable<OrganisationDetail> {
+    return this.http.put<OrganisationDetail>(`/api/v1/admin/organisations/${id}`, body);
+  }
+  addChannel(id: string, body: ChannelRequest): Observable<OrganisationDetail> {
+    return this.http.post<OrganisationDetail>(`/api/v1/admin/organisations/${id}/channels`, body);
+  }
+  updateChannel(id: string, channelId: string, body: ChannelRequest): Observable<OrganisationDetail> {
+    return this.http.put<OrganisationDetail>(`/api/v1/admin/organisations/${id}/channels/${channelId}`, body);
+  }
+  deleteChannel(id: string, channelId: string): Observable<void> {
+    return this.http.delete<void>(`/api/v1/admin/organisations/${id}/channels/${channelId}`);
+  }
   organisation(id: string): Observable<OrganisationDetail> {
     return this.http.get<OrganisationDetail>(`/api/v1/organisations/${id}`);
   }
@@ -49,8 +67,28 @@ export class ApiService {
   members(): Observable<Member[]> {
     return this.http.get<Member[]>('/api/v1/users');
   }
-  addMember(body: { email: string; fullName: string; role: string; initialPassword: string }): Observable<Member> {
-    return this.http.post<Member>('/api/v1/users', body);
+  addMember(body: { email: string; fullName: string; role: string }): Observable<AddMemberResult> {
+    return this.http.post<AddMemberResult>('/api/v1/users', body);
+  }
+  resendInvitation(id: string): Observable<AddMemberResult> {
+    return this.http.post<AddMemberResult>(`/api/v1/users/${id}/resend-invitation`, {});
+  }
+
+  // Account e-mails (no sign-in needed except resend)
+  forgotPassword(email: string): Observable<void> {
+    return this.http.post<void>('/api/v1/auth/forgot-password', { email });
+  }
+  tokenInfo(token: string): Observable<TokenInfo> {
+    return this.http.post<TokenInfo>('/api/v1/auth/token-info', { token });
+  }
+  setPassword(token: string, password: string): Observable<void> {
+    return this.http.post<void>('/api/v1/auth/set-password', { token, password });
+  }
+  verifyEmail(token: string): Observable<void> {
+    return this.http.post<void>('/api/v1/auth/verify-email', { token });
+  }
+  resendVerification(): Observable<void> {
+    return this.http.post<void>('/api/v1/auth/verify-email/resend', {});
   }
   updateMember(id: string, body: { role?: string; status?: string }): Observable<Member> {
     return this.http.put<Member>(`/api/v1/users/${id}`, body);

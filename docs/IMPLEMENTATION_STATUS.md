@@ -1,9 +1,9 @@
 # Implementation status
 
-Last updated: 2026-11-12.
+Last updated: 2026-11-13.
 
-Verification: backend **84 tests** (unit + Testcontainers/PostgreSQL 17 integration; 1 opt-in live check skipped
-by default), frontend **13 tests** (Vitest), clean production frontend build, Docker Compose stack (postgres +
+Verification: backend **93 tests** (unit + Testcontainers/PostgreSQL 17 integration; 1 opt-in live check skipped
+by default), frontend **16 tests** (Vitest), clean production frontend build, Docker Compose stack (postgres +
 backend + nginx frontend + mailpit) healthy, and an end-to-end smoke run through nginx. The smoke run covered
 cookie login/restore, the dashboard, the mining view, recommended matches, extraction of a real eTenders PDF,
 shortlisting, notifications, focus templates and the frontend routes.
@@ -14,14 +14,15 @@ Live catalogue (2026-11-12): 2,096 active opportunities, 18 mining-related. Subm
 ## Phase 1 — Foundation ✅
 
 - [x] Spring Boot 4.1.2 / Java 21 project, Angular 22 project
-- [x] PostgreSQL + Flyway migrations (V1–V13), Docker Compose
+- [x] PostgreSQL + Flyway migrations (V1–V15), Docker Compose
 - [x] Registration, login, refresh rotation with reuse detection, logout, auth rate limiting
 - [x] Refresh token in an httpOnly `SameSite=Strict` cookie; access token kept in memory only
 - [x] Tenants, roles/permissions, member management with role-hierarchy rules
 - [x] Company profile (all spec fields; claims carry verification status; users cannot self-verify)
 - [x] Company document upload with text extraction
 - [x] OpenAPI/Swagger, tenant isolation tests
-- [ ] Email verification / invitation emails. Mail delivery exists (`oip.mail.enabled`); these flows are not built yet.
+- [x] Team invitations by e-mail (people set their own password), password reset ("Forgot password"),
+      e-mail verification with a reminder banner; single-use hashed tokens
 
 ## Phase 2 — Procurement source registry ✅
 
@@ -29,7 +30,8 @@ Live catalogue (2026-11-12): 2,096 active opportunities, 18 mining-related. Subm
 - [x] Source registry with spec metadata, integration statuses, terms-review status; DB constraint on enabling
 - [x] Seeded sources with recorded verification evidence (see SOURCE_REGISTER.md)
 - [x] Admin UI: list, create, edit, enable/disable, verification status, health
-- [ ] Admin CRUD UI for organisations/channels/mining operations (read-only API; edit via migrations)
+- [x] Admin UI to create/edit organisations and add/edit/remove procurement channels (platform admins)
+- [ ] Admin UI for mining operations (edit via migrations)
 
 ## Phase 3 — Crawler engine ✅
 
@@ -62,7 +64,8 @@ Live catalogue (2026-11-12): 2,096 active opportunities, 18 mining-related. Subm
 - [x] Closing date and submission method from documents, only where the listing has none (provenance `DOCUMENT`)
 - [x] "Non-compulsory briefing" is not read as compulsory. When both preference systems appear, one conditional
       entry is shown. A requirement repeated across documents is listed once.
-- [ ] Object storage (S3-compatible) instead of a local volume; OCR for scanned PDFs
+- [x] ZIP tender packs (in-memory, size-limited) and PowerPoint documents; downloads up to 60 MB
+- [ ] Object storage (S3-compatible) instead of a local volume; OCR for scanned PDFs; OpenDocument files
 
 ## Phase 6 — AI classification and matching ✅ (AI needs an API key)
 
@@ -89,6 +92,9 @@ Live catalogue (2026-11-12): 2,096 active opportunities, 18 mining-related. Subm
 - [x] POPIA self-service: export (`/users/me/export`) and account deletion (`/users/me/delete`)
 - [x] Organisation administration for platform admins
 - [ ] Load testing; PostgreSQL row-level security; privacy notice and legal text
+
+Infrastructure: host ports are configurable (`OIP_WEB_PORT`, `OIP_API_PORT`, `OIP_MAIL_UI_PORT`) so the stack can
+run beside other projects.
 
 ## Known limitations and open questions
 

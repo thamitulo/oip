@@ -17,7 +17,8 @@ import java.time.Instant;
 @Table(name = "users")
 public class User extends BaseEntity {
 
-    public enum Status { ACTIVE, DISABLED }
+    /** INVITED: created by an invitation that has not been accepted yet (no usable password). */
+    public enum Status { ACTIVE, DISABLED, INVITED }
 
     @Column(nullable = false)
     private String email;
@@ -49,6 +50,9 @@ public class User extends BaseEntity {
 
     @Column(name = "last_login_at")
     private Instant lastLoginAt;
+
+    @Column(name = "email_verified_at")
+    private Instant emailVerifiedAt;
 
     public boolean isActive() {
         return status == Status.ACTIVE;

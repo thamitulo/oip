@@ -55,7 +55,7 @@
         </div>
         @for (n of notifications(); track n.id) {
           <button mat-menu-item class="notif" [class.unread]="!n.readAt" (click)="openNotification(n)">
-            <div class="truncate strong small">{{ n.title }}</div>
+            <div class="truncate strong small">{{ readable(n.title) }}</div>
             <div class="xs muted">{{ n.type | label }} · {{ n.createdAt | dateTime }}</div>
           </button>
         } @empty { <div class="xs muted" style="padding:10px 16px">You're all caught up.</div> }
@@ -76,6 +76,18 @@
       </mat-menu>
     </header>
 
+    @if (auth.user(); as u) {
+      @if (!u.emailVerified && !verifyDismissed()) {
+        <div class="verify-bar" role="status">
+          <mat-icon>mark_email_unread</mat-icon>
+          <span>Please confirm your e-mail address ({{ u.email }}) using the link we sent you.</span>
+          <span class="spacer"></span>
+          @if (verifySent()) { <span class="small">New link sent.</span> }
+          @else { <button mat-button (click)="resendVerification()">Resend link</button> }
+          <button mat-icon-button aria-label="Dismiss" (click)="verifyDismissed.set(true)"><mat-icon>close</mat-icon></button>
+        </div>
+      }
+    }
     <main><router-outlet /></main>
   </mat-sidenav-content>
 

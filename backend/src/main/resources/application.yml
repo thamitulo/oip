@@ -87,6 +87,8 @@ oip:
     processing-enabled: ${OIP_DOCUMENTS_PROCESSING_ENABLED:true}
     batch-size: ${OIP_DOCUMENTS_BATCH_SIZE:10}
     original-retention-days: ${OIP_DOCUMENTS_RETENTION_DAYS:90}
+    # Tender packs are often larger than listing pages.
+    max-download-bytes: ${OIP_DOCUMENTS_MAX_BYTES:62914560}
   cors:
     allowed-origins: ${OIP_CORS_ALLOWED_ORIGINS:http://localhost:4200}
   crawler:

@@ -60,6 +60,8 @@ public class DocumentProcessingService {
     private final Clock clock;
     private final int retentionDays;
 
+    private final long maxDownloadBytes;
+
     public DocumentProcessingService(OpportunityDocumentRepository documentRepository,
                                      SourceDocumentRepository sourceDocumentRepository,
                                      OpportunityRequirementRepository requirementRepository,
@@ -68,7 +70,9 @@ public class DocumentProcessingService {
                                      PoliteHttpClient http, TextExtractor textExtractor,
                                      RequirementExtractor requirementExtractor, DocumentStorage storage,
                                      MeterRegistry meterRegistry, PlatformTransactionManager transactionManager, Clock clock,
-                                     @Value("${oip.documents.original-retention-days:90}") int retentionDays) {
+                                     @Value("${oip.documents.original-retention-days:90}") int retentionDays,
+                                     @Value("${oip.documents.max-download-bytes:62914560}") long maxDownloadBytes) {
+        this.maxDownloadBytes = maxDownloadBytes;
         this.documentRepository = documentRepository;
         this.sourceDocumentRepository = sourceDocumentRepository;
         this.requirementRepository = requirementRepository;
@@ -127,7 +131,7 @@ public class DocumentProcessingService {
             return;
         }
         try {
-            FetchResult fetched = http.get(URI.create(doc.getUrl()), source.getRateLimitPerMinute());
+            FetchResult fetched = http.get(URI.create(doc.getUrl()), source.getRateLimitPerMinute(), maxDownloadBytes);
             String key = "opportunity/" + opportunity.getId() + "/" + sd.getId();
             storage.put(key, fetched.body());
             TextExtractor.Extraction extraction = textExtractor.extract(fetched.body(), doc.getTitle());

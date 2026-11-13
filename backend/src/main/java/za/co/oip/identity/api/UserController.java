@@ -53,8 +53,16 @@ public class UserController {
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     @PreAuthorize("hasAuthority('USERS_MANAGE')")
-    public MemberDto create(@Valid @RequestBody CreateMemberRequest request) {
+    public za.co.oip.identity.api.UserDtos.AddMemberResult create(@Valid @RequestBody CreateMemberRequest request) {
         return userManagementService.addMember(CurrentUser.require(), request);
+    }
+
+    @Operation(summary = "Send a new invitation link to a member who has not accepted yet")
+    @PostMapping("/{id}/resend-invitation")
+    @PreAuthorize("hasAuthority('USERS_MANAGE')")
+    public za.co.oip.identity.api.UserDtos.AddMemberResult resendInvitation(
+            @org.springframework.web.bind.annotation.PathVariable java.util.UUID id) {
+        return userManagementService.resendInvitation(CurrentUser.require(), id);
     }
 
     @Operation(summary = "Change a member's role or status in the current tenant")

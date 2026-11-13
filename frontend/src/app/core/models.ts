@@ -37,6 +37,7 @@ export interface CurrentUser {
   platformAdmin: boolean;
   permissions: string[];
   memberships: Membership[];
+  emailVerified: boolean;
 }
 
 export interface AuthResponse {
@@ -204,11 +205,21 @@ export interface OrganisationSummary {
   website: string | null; websiteVerification: 'UNVERIFIED' | 'VERIFIED' | 'UNREACHABLE' | 'BLOCKED'; province: string | null;
 }
 
+export interface OrganisationRequest {
+  name: string; shortName: string | null; organisationType: string; sector: Sector; website: string | null;
+  websiteVerification: string; province: string | null; notes: string | null; primaryCommodities: string | null;
+}
+export interface ChannelRequest {
+  channelType: string; name: string; url: string | null; supplierPlatformId: string | null; description: string | null;
+  verificationStatus: string;
+}
+export interface SupplierPlatformSummary { id: string; name: string; }
+
 export interface OrganisationDetail {
   organisation: OrganisationSummary;
   notes: string | null;
   primaryCommodities: string | null;
-  channels: { id: string; channelType: string; name: string; url: string | null; supplierPlatform: string | null; description: string | null; verificationStatus: string; lastVerifiedAt: string | null }[];
+  channels: { id: string; channelType: string; name: string; url: string | null; supplierPlatform: string | null; description: string | null; verificationStatus: string; lastVerifiedAt: string | null; supplierPlatformId: string | null }[];
   sources: { id: string; name: string; sourceUrl: string | null; integrationStatus: IntegrationStatus; enabled: boolean; lastSuccessfulCrawlAt: string | null; lastVerifiedAt: string | null; verificationNotes: string | null }[];
 }
 
@@ -249,8 +260,12 @@ export interface CompanyProfile {
 
 export interface Member {
   id: string; email: string; fullName: string; role: TenantRole; status: 'ACTIVE' | 'DISABLED';
-  lastLoginAt: string | null; memberSince: string;
+  lastLoginAt: string | null; memberSince: string; invitationPending: boolean;
 }
+
+export interface AddMemberResult { member: Member; invitationEmailed: boolean; invitationUrl: string | null; }
+
+export interface TokenInfo { purpose: 'PASSWORD_RESET' | 'INVITATION' | 'EMAIL_VERIFICATION'; fullName: string; tenantName: string | null; }
 
 export const PROVINCES: { code: string; label: string }[] = [
   { code: 'EASTERN_CAPE', label: 'Eastern Cape' },

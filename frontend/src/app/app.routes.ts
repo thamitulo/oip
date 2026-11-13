@@ -4,6 +4,10 @@ import { ShellComponent } from './layout/shell.component';
 
 export const routes: Routes = [
   { path: 'login', canActivate: [guestGuard], loadComponent: () => import('./features/auth/login.component').then((m) => m.LoginComponent) },
+  { path: 'forgot-password', canActivate: [guestGuard], data: { mode: 'forgot' }, loadComponent: () => import('./features/auth/account-link.component').then((m) => m.AccountLinkComponent) },
+  { path: 'reset-password', data: { mode: 'set' }, loadComponent: () => import('./features/auth/account-link.component').then((m) => m.AccountLinkComponent) },
+  { path: 'accept-invite', data: { mode: 'set' }, loadComponent: () => import('./features/auth/account-link.component').then((m) => m.AccountLinkComponent) },
+  { path: 'verify-email', data: { mode: 'verify' }, loadComponent: () => import('./features/auth/account-link.component').then((m) => m.AccountLinkComponent) },
   { path: 'register', canActivate: [guestGuard], loadComponent: () => import('./features/auth/register.component').then((m) => m.RegisterComponent) },
   {
     path: '',

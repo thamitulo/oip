@@ -53,6 +53,7 @@ public class PlatformAdminBootstrap implements ApplicationRunner {
             u.setEmail(cfg.adminEmail().trim().toLowerCase());
             u.setFullName("Platform Administrator");
             u.setPasswordHash(passwordEncoder.encode(cfg.adminPassword()));
+            u.setEmailVerifiedAt(java.time.Instant.now()); // configured by the operator
             return userRepository.save(u);
         });
         admin.setPlatformAdmin(true);

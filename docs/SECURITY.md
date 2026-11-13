@@ -9,6 +9,10 @@
 - Refresh tokens: 256-bit random, stored only as SHA-256 hashes in `user_sessions`, single use with rotation;
   re-use of a rotated token revokes all of the user's sessions. Logout revokes the token.
 - Rate limit: 30 requests/minute per IP on `/api/v1/auth/*`, counted in PostgreSQL so it holds across instances.
+- Account e-mail links (password reset 1 h, invitation 7 days, e-mail verification 3 days) carry a 256-bit random
+  token; only its SHA-256 hash is stored (`account_tokens`). Links are single use; setting a password revokes all
+  sessions and any other open reset links. `forgot-password` answers the same for unknown addresses. Invited users
+  have status `INVITED` and cannot sign in until they accept. Tokens are sent in request bodies, not URLs, to the API.
 
 - The web app never stores tokens: the refresh token is set as an `httpOnly; Secure; SameSite=Strict` cookie scoped
   to `/api/v1/auth`, and the access token is kept in memory. On load the app restores the session with
@@ -76,6 +80,10 @@ fixes its chain.
 - Company and opportunity data sent to the provider is limited to what the feature needs.
 
 ## Documents
+
+Tender documents are downloaded up to `OIP_DOCUMENTS_MAX_BYTES` (60 MB default). ZIP packs are read in memory only
+(no extraction to disk), one level deep, at most 60 files, 40 MB per file and 200 MB uncompressed in total; nested
+archives, executables and unsupported types inside are listed as not extracted.
 
 Uploads (25 MB max) are type-checked from their bytes against an allow-list; storage keys are platform-generated
 and validated against path traversal; downloads are served as attachments with `nosniff`; company documents are

@@ -23,7 +23,8 @@ public final class OrganisationDtos {
     }
 
     public record ChannelDto(UUID id, ChannelType channelType, String name, String url, String supplierPlatform,
-                             String description, ChannelVerification verificationStatus, Instant lastVerifiedAt) {
+                             String description, ChannelVerification verificationStatus, Instant lastVerifiedAt,
+                             UUID supplierPlatformId) {
     }
 
     /** Public view of a source: no parser internals. */

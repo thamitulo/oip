@@ -11,13 +11,24 @@ import { combineLatest, debounceTime, startWith, switchMap } from 'rxjs';
 import { ApiService, errorMessage } from '../../core/api.service';
 import { LabelPipe } from '../../core/format';
 import { OrganisationSummary, Sector } from '../../core/models';
+import { AuthService } from '../../core/auth.service';
+import { MatButtonModule } from '@angular/material/button';
+import { OrganisationFormComponent } from './organisation-editor.component';
 
 @Component({
   selector: 'app-organisation-list',
-  imports: [ReactiveFormsModule, MatFormFieldModule, MatInputModule, MatIconModule, MatButtonToggleModule, MatPaginatorModule, LabelPipe],
+  imports: [ReactiveFormsModule, MatFormFieldModule, MatInputModule, MatIconModule, MatButtonToggleModule, MatPaginatorModule, LabelPipe, MatButtonModule,
+    OrganisationFormComponent],
   template: `
     <div class="page">
-      <div class="page-header"><div><h1>Organisations</h1><p>Procuring entities, mining companies and aggregators</p></div></div>
+      <div class="page-header">
+        <div><h1>Organisations</h1><p>Procuring entities, mining companies and aggregators</p></div>
+        @if (isAdmin() && !creating()) { <button mat-flat-button (click)="creating.set(true)"><mat-icon>add</mat-icon>New organisation</button> }
+      </div>
+      @if (creating()) {
+        <app-organisation-form (saved)="openCreated($event.organisation.id)" (cancelled)="creating.set(false)" />
+        <div style="height:12px"></div>
+      }
       <div class="row" style="margin-bottom:12px">
         <mat-form-field appearance="outline" style="flex:1 1 280px">
           <mat-label>Search organisations</mat-label>
@@ -57,6 +68,12 @@ import { OrganisationSummary, Sector } from '../../core/models';
 export class OrganisationListComponent {
   private readonly api = inject(ApiService);
   private readonly router = inject(Router);
+  protected readonly isAdmin = inject(AuthService).isPlatformAdmin;
+  protected readonly creating = signal(false);
+
+  protected openCreated(id: string): void {
+    void this.router.navigate(['/organisations', id]);
+  }
   protected readonly q = new FormControl('', { nonNullable: true });
   protected readonly sector = new FormControl<Sector | null>(
     (inject(ActivatedRoute).snapshot.queryParamMap.get('sector') as Sector | null) ?? null);

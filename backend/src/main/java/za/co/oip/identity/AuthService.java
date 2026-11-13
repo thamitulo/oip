@@ -51,12 +51,14 @@ public class AuthService {
     private final OipProperties properties;
     private final Clock clock;
     private final String dummyPasswordHash;
+    private final AccountEmailService accountEmailService;
 
     public AuthService(UserRepository userRepository, UserSessionRepository sessionRepository,
                        TenantRepository tenantRepository, TenantUserRepository tenantUserRepository,
                        TenantService tenantService, PasswordEncoder passwordEncoder, JwtService jwtService,
                        CurrentUserService currentUserService, AuditService auditService,
-                       OipProperties properties, Clock clock) {
+                       OipProperties properties, Clock clock, AccountEmailService accountEmailService) {
+        this.accountEmailService = accountEmailService;
         this.userRepository = userRepository;
         this.sessionRepository = sessionRepository;
         this.tenantRepository = tenantRepository;
@@ -91,6 +93,7 @@ public class AuthService {
         Tenant tenant = tenantService.createTenant(request.companyName(), user.getId());
         auditService.recordAs(user.getId(), tenant.getId(), "USER_REGISTERED", "User", user.getId());
         TenantUser membership = tenantUserRepository.findByTenantIdAndUserId(tenant.getId(), user.getId()).orElseThrow();
+        accountEmailService.sendVerification(user.getId());
         return issueSession(user, membership, client);
     }
 

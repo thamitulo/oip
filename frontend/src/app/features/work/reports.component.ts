@@ -31,12 +31,12 @@ interface Week { week: string; government: number; mining: number; total: number
             <h2>Opportunities discovered per week</h2>
             <div class="chart" role="img" [attr.aria-label]="'Weekly discovered opportunities'">
               @for (w of weeks(); track w.week) {
-                <div class="col" [title]="w.week + ': ' + w.government + ' government, ' + w.mining + ' mining'">
+                <div class="col" [title]="'Week of ' + weekLabel(w.week) + ': ' + w.government + ' government, ' + w.mining + ' mining'">
                   <div class="stackbar">
                     <span class="seg gov" [style.height.%]="pct(w.government)"></span>
                     <span class="seg min" [style.height.%]="pct(w.mining)"></span>
                   </div>
-                  <span class="xs muted">{{ w.week.slice(5) }}</span>
+                  <span class="xs muted">{{ weekLabel(w.week) }}</span>
                 </div>
               } @empty { <div class="muted small">No data yet.</div> }
             </div>
@@ -60,6 +60,11 @@ export class ReportsComponent {
   private readonly api = inject(ApiService);
   protected readonly report = signal<{ byStage: { stage: string; count: number }[]; outcomes: Record<string, number | null>; tasks: Record<string, number> } | null>(null);
   protected readonly weeks = signal<Week[]>([]);
+  /** "2026-11-09T00:00:00Z" or "2026-11-09" -> "9 Nov". */
+  protected weekLabel(week: string): string {
+    const d = new Date(week.length <= 10 ? week + 'T00:00:00Z' : week);
+    return isNaN(d.getTime()) ? week : new Intl.DateTimeFormat('en-ZA', { day: 'numeric', month: 'short', timeZone: 'UTC' }).format(d).replace(/^0/, '');
+  }
   protected readonly categories = signal<{ category: string; count: number }[]>([]);
   protected readonly error = signal<string | null>(null);
   protected readonly total = computed(() => (this.report()?.byStage ?? []).reduce((a, b) => a + Number(b.count), 0));

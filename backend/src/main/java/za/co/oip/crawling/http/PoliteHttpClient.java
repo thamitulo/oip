@@ -102,7 +102,16 @@ public class PoliteHttpClient {
             throw new FetchException(CrawlOutcome.BLOCKED_BY_ROBOTS, "robots.txt disallows " + uri.getPath(),
                     uri.toString(), (Integer) null);
         }
-        return fetch(uri, requestsPerMinute, "*/*");
+        return fetch(uri, requestsPerMinute, "*/*", properties.maxResponseBytes());
+    }
+
+    /** As {@link #get(URI, int)} with a different size limit (tender documents can be larger than listing pages). */
+    public FetchResult get(URI uri, int requestsPerMinute, long maxBytes) throws FetchException {
+        if (!isAllowedByRobots(uri, requestsPerMinute)) {
+            throw new FetchException(CrawlOutcome.BLOCKED_BY_ROBOTS, "robots.txt disallows " + uri.getPath(),
+                    uri.toString(), (Integer) null);
+        }
+        return fetch(uri, requestsPerMinute, "*/*", maxBytes);
     }
 
     /** Returns whether robots.txt on the URL's host permits this crawler to fetch it. */
@@ -123,7 +132,7 @@ public class PoliteHttpClient {
     private RobotsTxt loadRobots(String origin, int requestsPerMinute) throws FetchException {
         URI robotsUri = URI.create(origin + "/robots.txt");
         try {
-            FetchResult result = fetch(robotsUri, requestsPerMinute, "text/plain");
+            FetchResult result = fetch(robotsUri, requestsPerMinute, "text/plain", properties.maxResponseBytes());
             // Sites that answer /robots.txt with an HTML page (soft 404) have no robots policy.
             if (!result.isContentType("text/plain")) {
                 return RobotsTxt.ALLOW_ALL;
@@ -139,7 +148,7 @@ public class PoliteHttpClient {
         }
     }
 
-    private FetchResult fetch(URI initial, int requestsPerMinute, String accept) throws FetchException {
+    private FetchResult fetch(URI initial, int requestsPerMinute, String accept, long maxBytes) throws FetchException {
         URI uri = initial;
         for (int redirects = 0; redirects <= MAX_REDIRECTS; redirects++) {
             validateTarget(uri);
@@ -172,7 +181,7 @@ public class PoliteHttpClient {
                 closeQuietly(response.body());
                 throw new FetchException(classify(status), "HTTP " + status, uri.toString(), status);
             }
-            byte[] body = readLimited(response.body(), uri);
+            byte[] body = readLimited(response.body(), uri, maxBytes);
             String contentType = response.headers().firstValue("Content-Type").orElse(null);
             return new FetchResult(uri, status, contentType, body, clock.instant(), sha256(body));
         }
@@ -238,12 +247,12 @@ public class PoliteHttpClient {
         }
     }
 
-    private byte[] readLimited(InputStream in, URI uri) throws FetchException {
+    private byte[] readLimited(InputStream in, URI uri, long maxBytes) throws FetchException {
         try (in) {
-            byte[] data = in.readNBytes((int) Math.min(Integer.MAX_VALUE - 8, properties.maxResponseBytes() + 1));
-            if (data.length > properties.maxResponseBytes()) {
+            byte[] data = in.readNBytes((int) Math.min(Integer.MAX_VALUE - 8, maxBytes + 1));
+            if (data.length > maxBytes) {
                 throw new FetchException(CrawlOutcome.CRAWL_FAILED,
-                        "Response exceeds " + properties.maxResponseBytes() + " bytes", uri.toString(), (Integer) null);
+                        "Response exceeds " + maxBytes + " bytes", uri.toString(), (Integer) null);
             }
             return data;
         } catch (IOException e) {

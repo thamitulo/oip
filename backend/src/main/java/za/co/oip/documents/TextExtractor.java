@@ -31,8 +31,16 @@ public class TextExtractor {
             "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             "application/x-tika-ooxml",
             "application/x-tika-msoffice",
+            "application/vnd.ms-powerpoint",
+            "application/vnd.openxmlformats-officedocument.presentationml.presentation",
             "text/plain",
             "text/csv");
+
+    static final String ZIP = "application/zip";
+    /** Limits for tender packs delivered as ZIP files (protect against zip bombs). */
+    static final int ZIP_MAX_ENTRIES = 60;
+    static final long ZIP_MAX_ENTRY_BYTES = 40L * 1024 * 1024;
+    static final long ZIP_MAX_TOTAL_BYTES = 200L * 1024 * 1024;
 
     public record Extraction(String contentType, String text, boolean truncated, Integer pageCount) {
     }
@@ -61,6 +69,9 @@ public class TextExtractor {
 
     public Extraction extract(byte[] data, String fileName) {
         String type = detect(data, fileName);
+        if (ZIP.equals(type)) {
+            return extractZip(data);
+        }
         if (!ALLOWED_TYPES.contains(type)) {
             throw new UnsupportedDocumentException("Unsupported document type: " + type);
         }
@@ -88,6 +99,63 @@ public class TextExtractor {
             }
         }
         return new Extraction(type, text, truncated, pages);
+    }
+
+    /**
+     * Extracts the supported documents inside a ZIP pack (one level; nested archives are skipped), each preceded by a
+     * header line with its name. Entries are read in memory within the size limits; nothing is written to disk.
+     */
+    Extraction extractZip(byte[] data) {
+        StringBuilder text = new StringBuilder();
+        boolean truncated = false;
+        int pages = 0;
+        boolean anyPages = false;
+        int used = 0;
+        long total = 0;
+        java.util.List<String> skipped = new java.util.ArrayList<>();
+        try (java.util.zip.ZipInputStream zip = new java.util.zip.ZipInputStream(new ByteArrayInputStream(data))) {
+            for (java.util.zip.ZipEntry e; (e = zip.getNextEntry()) != null; ) {
+                String name = e.getName();
+                String base = name.substring(name.lastIndexOf('/') + 1);
+                if (e.isDirectory() || base.isEmpty() || base.startsWith(".") || name.startsWith("__MACOSX/")) continue;
+                if (used >= ZIP_MAX_ENTRIES) { skipped.add(base + " (too many files)"); continue; }
+                byte[] entry = zip.readNBytes((int) ZIP_MAX_ENTRY_BYTES + 1);
+                total += entry.length;
+                if (entry.length > ZIP_MAX_ENTRY_BYTES) { skipped.add(base + " (too large)"); continue; }
+                if (total > ZIP_MAX_TOTAL_BYTES) { skipped.add(base + " (archive too large)"); break; }
+                String type;
+                try {
+                    type = detect(entry, base);
+                } catch (UnsupportedDocumentException ex) {
+                    skipped.add(base);
+                    continue;
+                }
+                if (!ALLOWED_TYPES.contains(type)) { skipped.add(base); continue; }
+                used++;
+                try {
+                    Extraction inner = extract(entry, base);
+                    text.append("\n\n===== ").append(base).append(" =====\n").append(inner.text());
+                    truncated |= inner.truncated();
+                    if (inner.pageCount() != null) { pages += inner.pageCount(); anyPages = true; }
+                } catch (RuntimeException ex) {
+                    skipped.add(base + " (could not be read)");
+                }
+                if (text.length() >= MAX_CHARS) { truncated = true; break; }
+            }
+        } catch (java.io.IOException e) {
+            throw new IllegalStateException("Could not read ZIP archive: " + e.getMessage(), e);
+        }
+        if (used == 0) {
+            throw new UnsupportedDocumentException("ZIP archive contains no supported documents"
+                    + (skipped.isEmpty() ? "" : " (" + String.join(", ", skipped.subList(0, Math.min(5, skipped.size()))) + ")"));
+        }
+        if (!skipped.isEmpty()) {
+            text.append("\n\n[Not extracted from the archive: ")
+                    .append(String.join(", ", skipped.subList(0, Math.min(20, skipped.size()))))
+                    .append(skipped.size() > 20 ? " and " + (skipped.size() - 20) + " more" : "").append("]");
+        }
+        String out = text.length() > MAX_CHARS ? text.substring(0, MAX_CHARS) : text.toString().strip();
+        return new Extraction(ZIP, out, truncated, anyPages ? pages : null);
     }
 
     private static boolean isWriteLimit(Throwable e) {

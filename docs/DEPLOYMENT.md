@@ -8,7 +8,10 @@
 | frontend | `frontend/Dockerfile` (nginx) | 80 | Serves the SPA, proxies `/api`, `/v3/api-docs`, `/swagger-ui` to `backend:8080`, sets security headers |
 | postgres | `postgres:17-alpine` | 5432 | Use a managed service in production |
 
-Local: `docker compose up --build` (see README). Compose binds ports to `127.0.0.1` only.
+Local: `docker compose up --build` (see README). Compose binds ports to `127.0.0.1` only. Host ports are
+configurable when another project already uses them: `OIP_WEB_PORT` (4200), `OIP_API_PORT` (8080),
+`OIP_MAIL_UI_PORT` (8025), e.g. `OIP_WEB_PORT=4300 OIP_API_PORT=8180 docker compose up -d`. Set `OIP_APP_URL` to
+the address people use, because it is used in e-mailed links.
 
 ## Production guidance (any container platform)
 

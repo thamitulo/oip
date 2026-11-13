@@ -1,3 +1,4 @@
+import { readableTitle } from '../core/format';
 import { BreakpointObserver } from '@angular/cdk/layout';
 import { Component, DestroyRef, computed, inject, signal } from '@angular/core';
 import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
@@ -27,8 +28,11 @@ interface NavItem { label: string; icon: string; link: string; exact?: boolean; 
   styleUrl: './shell.component.scss',
 })
 export class ShellComponent {
+  protected readonly readable = readableTitle;
   protected readonly auth = inject(AuthService);
   protected readonly ui = inject(UiStateService);
+  protected readonly verifyDismissed = signal(false);
+  protected readonly verifySent = signal(false);
   private readonly api = inject(ApiService);
   private readonly router = inject(Router);
   protected readonly isMobile = toSignal(
@@ -94,5 +98,9 @@ export class ShellComponent {
       this.ui.unread.set(0);
       this.loadNotifications();
     });
+  }
+
+  protected resendVerification(): void {
+    this.api.resendVerification().subscribe({ next: () => this.verifySent.set(true) });
   }
 }

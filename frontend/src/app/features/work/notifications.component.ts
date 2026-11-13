@@ -1,3 +1,4 @@
+import { readableTitle } from '../../core/format';
 import { Component, inject, signal } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { MatButtonToggleModule } from '@angular/material/button-toggle';
@@ -35,7 +36,7 @@ const ICONS: Record<string, string> = {
           <button class="note" [class.unread]="!n.readAt" (click)="open(n)">
             <mat-icon>{{ icon(n.type) }}</mat-icon>
             <div class="grow">
-              <div class="strong">{{ n.title }}</div>
+              <div class="strong">{{ readable(n.title) }}</div>
               @if (n.body) { <div class="small muted">{{ n.body }}</div> }
               <div class="xs muted">{{ n.type | label }} · {{ n.createdAt | dateTime }}</div>
             </div>
@@ -55,6 +56,7 @@ const ICONS: Record<string, string> = {
   `,
 })
 export class NotificationsComponent {
+  protected readonly readable = readableTitle;
   private readonly api = inject(ApiService);
   private readonly router = inject(Router);
   private readonly ui = inject(UiStateService);

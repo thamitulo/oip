@@ -38,8 +38,12 @@ public class AuthController {
     private final AuthService authService;
     private final boolean secureCookie;
 
-    public AuthController(AuthService authService, @Value("${oip.security.secure-cookies:true}") boolean secureCookie) {
+    private final za.co.oip.identity.AccountEmailService accountEmails;
+
+    public AuthController(AuthService authService, za.co.oip.identity.AccountEmailService accountEmails,
+                          @Value("${oip.security.secure-cookies:true}") boolean secureCookie) {
         this.authService = authService;
+        this.accountEmails = accountEmails;
         this.secureCookie = secureCookie;
     }
 
@@ -66,6 +70,41 @@ public class AuthController {
             throw new AuthenticationFailedException("No refresh token");
         }
         return withCookie(authService.refresh(token, client(http)), res);
+    }
+
+    @Operation(summary = "E-mail a password reset link. Always returns 202, whether or not the address has an account")
+    @PostMapping("/forgot-password")
+    @ResponseStatus(HttpStatus.ACCEPTED)
+    public void forgotPassword(@Valid @RequestBody za.co.oip.identity.api.AuthDtos.ForgotPasswordRequest request) {
+        accountEmails.requestPasswordReset(request.email());
+    }
+
+    @Operation(summary = "What an e-mailed link is for (reset, invitation or verification), without using it")
+    @PostMapping("/token-info")
+    public za.co.oip.identity.api.AuthDtos.TokenInfo tokenInfo(
+            @Valid @RequestBody za.co.oip.identity.api.AuthDtos.TokenRequest request) {
+        return accountEmails.describe(request.token());
+    }
+
+    @Operation(summary = "Set a password from a reset or invitation link; signs out all existing sessions")
+    @PostMapping("/set-password")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void setPassword(@Valid @RequestBody za.co.oip.identity.api.AuthDtos.SetPasswordRequest request) {
+        accountEmails.setPassword(request.token(), request.password());
+    }
+
+    @Operation(summary = "Confirm an e-mail address from a verification link")
+    @PostMapping("/verify-email")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void verifyEmail(@Valid @RequestBody za.co.oip.identity.api.AuthDtos.TokenRequest request) {
+        accountEmails.verifyEmail(request.token());
+    }
+
+    @Operation(summary = "Send a new verification link to the signed-in user")
+    @PostMapping("/verify-email/resend")
+    @ResponseStatus(HttpStatus.ACCEPTED)
+    public void resendVerification() {
+        accountEmails.sendVerification(za.co.oip.security.CurrentUser.require().userId());
     }
 
     @Operation(summary = "Revoke a refresh token")

@@ -61,7 +61,7 @@ public class OrganisationQueryService {
         List<ChannelDto> channels = channelRepository.findByOrganisationIdOrderByChannelTypeAsc(id).stream()
                 .map(c -> new ChannelDto(c.getId(), c.getChannelType(), c.getName(), c.getUrl(),
                         c.getSupplierPlatformId() == null ? null : platformNames.get(c.getSupplierPlatformId()),
-                        c.getDescription(), c.getVerificationStatus(), c.getLastVerifiedAt()))
+                        c.getDescription(), c.getVerificationStatus(), c.getLastVerifiedAt(), c.getSupplierPlatformId()))
                 .toList();
         List<SourceSummaryDto> sources = sourceRepository.findByOrganisationId(id).stream()
                 .map(s -> new SourceSummaryDto(s.getId(), s.getName(), s.getSourceUrl(), s.getIntegrationStatus(),

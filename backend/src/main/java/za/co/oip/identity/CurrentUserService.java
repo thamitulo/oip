@@ -48,6 +48,7 @@ public class CurrentUserService {
             }
         });
         return new CurrentUserDto(user.getId(), user.getEmail(), user.getFullName(), user.getTimezone(),
-                tenant.getId(), tenant.getName(), principal.role(), user.isPlatformAdmin(), permissions, memberships);
+                tenant.getId(), tenant.getName(), principal.role(), user.isPlatformAdmin(), permissions, memberships,
+                user.getEmailVerifiedAt() != null);
     }
 }

@@ -56,6 +56,10 @@ public class TestApi {
         return perform(MockMvcRequestBuilders.post(url), s, body);
     }
 
+    public ResultActions delete(String url, Session s) throws Exception {
+        return perform(MockMvcRequestBuilders.delete(url), s, null);
+    }
+
     public ResultActions put(String url, Session s, Object body) throws Exception {
         return perform(MockMvcRequestBuilders.put(url), s, body);
     }

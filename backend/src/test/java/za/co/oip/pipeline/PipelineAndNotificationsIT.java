@@ -78,7 +78,7 @@ class PipelineAndNotificationsIT extends IntegrationTest {
         Session outsider = api().registerTenant("Outsider Co");
         String email = "bm-" + System.nanoTime() + "@example.test";
         String bmId = api().read(api().post("/api/v1/users", owner, Map.of("email", email, "fullName", "Bid Manager",
-                "role", "BID_MANAGER", "initialPassword", "bid-manager-pass"))).get("id").asString();
+                "role", "BID_MANAGER", "initialPassword", "bid-manager-pass"))).get("member").get("id").asString();
         Session bm = api().login(email, "bid-manager-pass");
 
         api().post("/api/v1/tenant/opportunities/" + opportunityId + "/shortlist", owner, Map.of());

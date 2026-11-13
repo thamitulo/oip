@@ -20,7 +20,13 @@ Base path `/api/v1`. Interactive documentation: `/swagger-ui.html`; machine-read
 | POST | `/auth/logout` | `{refreshToken}` → 204 |
 | GET | `/users/me` | Current user, tenant, role, permissions, memberships |
 | GET | `/users` | Members of the current tenant |
-| POST | `/users` | `USERS_MANAGE`. Add member `{email, fullName, role, initialPassword}`; cannot grant above own role |
+| POST | `/auth/forgot-password` | `{email}` → always 202 (does not reveal whether the account exists); e-mails a 1-hour reset link |
+| POST | `/auth/token-info` | `{token}` → `{purpose, fullName, tenantName}` for an e-mailed link, without using it |
+| POST | `/auth/set-password` | `{token, password}` → 204. Reset or invitation link; single use; signs out all sessions |
+| POST | `/auth/verify-email` | `{token}` → 204. Confirms the address |
+| POST | `/auth/verify-email/resend` | Signed in. Sends a new verification link |
+| POST | `/users` | `USERS_MANAGE`. `{email, fullName, role}` → `{member, invitationEmailed, invitationUrl}`. New people are invited by e-mail to set their own password (`invitationUrl` only when e-mail is disabled). `initialPassword` is optional for API use. Cannot grant above own role |
+| POST | `/users/{id}/resend-invitation` | `USERS_MANAGE`. New invitation link for a member who has not accepted |
 | PUT | `/users/{id}` | `USERS_MANAGE`. `{role?, status?}`; last owner cannot be demoted/disabled |
 
 ## Tenant and company profile

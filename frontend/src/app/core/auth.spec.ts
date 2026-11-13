@@ -10,7 +10,7 @@ import { AuthResponse, CurrentUser } from './models';
 
 const user = (platformAdmin = false): CurrentUser => ({
   userId: 'u1', email: 'a@b.test', fullName: 'Test User', timezone: 'Africa/Johannesburg', tenantId: 't1',
-  tenantName: 'Test Co', role: 'TENANT_OWNER', platformAdmin, permissions: ['OPPORTUNITIES_VIEW'], memberships: [],
+  tenantName: 'Test Co', role: 'TENANT_OWNER', platformAdmin, permissions: ['OPPORTUNITIES_VIEW'], memberships: [], emailVerified: true,
 });
 const response = (token: string, refresh: string, admin = false): AuthResponse => ({
   accessToken: token, accessTokenExpiresAt: '', refreshToken: refresh, refreshTokenExpiresAt: '', user: user(admin),

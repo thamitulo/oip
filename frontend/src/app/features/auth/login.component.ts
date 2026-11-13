@@ -27,6 +27,7 @@ import { AuthService } from '../../core/auth.service';
           <mat-label>Password</mat-label>
           <input matInput type="password" formControlName="password" autocomplete="current-password" />
         </mat-form-field>
+        <div class="row" style="justify-content:flex-end;margin-top:-6px"><a class="small" routerLink="/forgot-password">Forgot password?</a></div>
         <button mat-flat-button type="submit" [disabled]="busy()">{{ busy() ? 'Signing in…' : 'Sign in' }}</button>
         <p class="muted small" style="margin:0">New to the platform? <a routerLink="/register">Create a business account</a></p>
       </form>

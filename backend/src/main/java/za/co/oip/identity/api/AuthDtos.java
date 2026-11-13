@@ -58,6 +58,22 @@ public final class AuthDtos {
                                  TenantRole role,
                                  boolean platformAdmin,
                                  Set<String> permissions,
-                                 List<MembershipDto> memberships) {
+                                 List<MembershipDto> memberships,
+                                 boolean emailVerified) {
+    }
+
+    public record ForgotPasswordRequest(@NotBlank @Email @Size(max = 320) String email) {
+    }
+
+    /** Sets a new password from an e-mailed link (password reset or invitation). */
+    public record SetPasswordRequest(@NotBlank @Size(max = 200) String token,
+                                     @NotBlank @Size(min = 10, max = 128, message = "must be between 10 and 128 characters") String password) {
+    }
+
+    public record TokenRequest(@NotBlank @Size(max = 200) String token) {
+    }
+
+    /** What an e-mailed link is for, so the page can show the right form. Never reveals the e-mail address. */
+    public record TokenInfo(String purpose, String fullName, String tenantName) {
     }
 }
