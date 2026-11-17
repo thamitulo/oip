@@ -9,6 +9,7 @@ import { MatInputModule } from '@angular/material/input';
 import { MatPaginatorModule, PageEvent } from '@angular/material/paginator';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatSelectModule } from '@angular/material/select';
+import { MatTooltipModule } from '@angular/material/tooltip';
 import { OpportunitySummary } from '../../core/models';
 import { OpportunityTableComponent } from '../../shared/opportunity-table.component';
 import { FocusArea, FocusRequest, FocusService, FocusTemplate } from './focus.service';
@@ -18,13 +19,14 @@ const PROVINCES = [
   ['LIMPOPO', 'Limpopo'], ['MPUMALANGA', 'Mpumalanga'], ['NORTH_WEST', 'North West'], ['NORTHERN_CAPE', 'Northern Cape'],
   ['WESTERN_CAPE', 'Western Cape'],
 ] as const;
+const splitList = (s: string): string[] => s.split(',').map((k) => k.trim()).filter((k) => k.length > 0);
 const EVENT_TYPES = ['LAND_LEASE', 'TENDER', 'RFQ', 'RFP', 'RFI', 'EOI', 'ESD_PROGRAMME', 'OTHER'];
 
 /** "My focus": what the user is currently looking for (e.g. state land to lease), with matching opportunities. */
 @Component({
   selector: 'app-focus',
   imports: [ReactiveFormsModule, MatButtonModule, MatCheckboxModule, MatFormFieldModule, MatIconModule, MatInputModule,
-    MatPaginatorModule, MatProgressBarModule, MatSelectModule, OpportunityTableComponent],
+    MatPaginatorModule, MatProgressBarModule, MatSelectModule, MatTooltipModule, OpportunityTableComponent],
   template: `
     <div class="page">
       <div class="page-header">
@@ -70,11 +72,19 @@ const EVENT_TYPES = ['LAND_LEASE', 'TENDER', 'RFQ', 'RFP', 'RFI', 'EOI', 'ESD_PR
           </div>
           <mat-form-field appearance="outline" class="full"><mat-label>Keywords or phrases (comma separated)</mat-label>
             <textarea matInput rows="2" formControlName="keywords"></textarea>
-            <mat-hint>Searched in titles, descriptions and document text, e.g. "state farm, lease of state land"</mat-hint>
+            <mat-hint>Each entry is a word or exact phrase, e.g. "state farm, lease of state land". Title matches are listed first.
+              Write acronyms in capitals (IT, ICT) so they are matched exactly.</mat-hint>
+          </mat-form-field>
+          <mat-form-field appearance="outline" class="full"><mat-label>Exclude words (comma separated)</mat-label>
+            <input matInput formControlName="excludeKeywords" />
+            <mat-hint>Hide opportunities whose title or description contains any of these, e.g. "vehicle, hire"</mat-hint>
           </mat-form-field>
           <div class="row">
             <mat-checkbox formControlName="notifyMe">Notify me about new matches</mat-checkbox>
             <mat-checkbox formControlName="includeClosed">Include closed opportunities</mat-checkbox>
+            <mat-checkbox formControlName="searchDocuments"
+              matTooltip="Broader but noisier: common words appear in most tender packs. These matches are listed last.">
+              Also match words found only in tender documents</mat-checkbox>
             <span class="spacer"></span>
             <button mat-button type="button" (click)="cancel()">Cancel</button>
             <button mat-flat-button type="submit" [disabled]="form.invalid || busy()">Save</button>
@@ -97,7 +107,9 @@ const EVENT_TYPES = ['LAND_LEASE', 'TENDER', 'RFQ', 'RFP', 'RFI', 'EOI', 'ESD_PR
               @else {
                 @if (!loading()) {
                   <div class="card empty">Nothing open matches this focus right now. You'll be notified when something is published
-                    @if (!f.notifyMe) { (turn on notifications to be alerted) }.</div>
+                    @if (!f.notifyMe) { (turn on notifications to be alerted) }.
+                    @if (!f.searchDocuments && f.keywords.length) { You can also <button mat-button (click)="edit(f)">search inside tender documents</button>. }
+                  </div>
                 }
               }
             </div>
@@ -108,6 +120,8 @@ const EVENT_TYPES = ['LAND_LEASE', 'TENDER', 'RFQ', 'RFP', 'RFI', 'EOI', 'ESD_PR
               <h2>This focus</h2>
               <dl class="kv">
                 <dt>Keywords</dt><dd>{{ f.keywords.join(', ') || '—' }}</dd>
+                @if (f.excludeKeywords.length) { <dt>Excluding</dt><dd>{{ f.excludeKeywords.join(', ') }}</dd> }
+                <dt>Searches</dt><dd>{{ f.searchDocuments ? 'Titles, descriptions and documents' : 'Titles and descriptions' }}</dd>
                 <dt>Types</dt><dd>{{ f.eventTypes.map(label).join(', ') || 'Any' }}</dd>
                 <dt>Provinces</dt><dd>{{ provinceNames(f.provinces) || 'All' }}</dd>
                 <dt>Alerts</dt><dd>{{ f.notifyMe ? 'On' : 'Off' }}</dd>
@@ -166,9 +180,11 @@ export class FocusComponent {
   protected readonly form = inject(FormBuilder).nonNullable.group({
     name: ['', [Validators.required, Validators.maxLength(120)]],
     keywords: [''],
+    excludeKeywords: [''],
     eventTypes: [[] as string[]],
     provinces: [[] as string[]],
     includeClosed: [false],
+    searchDocuments: [false],
     notifyMe: [true],
   });
 
@@ -180,22 +196,25 @@ export class FocusComponent {
   protected startFromTemplate(t: FocusTemplate): void {
     this.templateCode = t.code;
     this.editingId.set(null);
-    this.form.reset({ name: t.name, keywords: t.keywords.join(', '), eventTypes: t.eventTypes, provinces: [], includeClosed: false, notifyMe: true });
+    this.form.reset({ name: t.name, keywords: t.keywords.join(', '), excludeKeywords: '', eventTypes: t.eventTypes, provinces: [],
+      includeClosed: false, searchDocuments: false, notifyMe: true });
     this.editing.set(true);
   }
 
   protected startBlank(): void {
     this.templateCode = null;
     this.editingId.set(null);
-    this.form.reset({ name: '', keywords: '', eventTypes: [], provinces: [], includeClosed: false, notifyMe: true });
+    this.form.reset({ name: '', keywords: '', excludeKeywords: '', eventTypes: [], provinces: [], includeClosed: false,
+      searchDocuments: false, notifyMe: true });
     this.editing.set(true);
   }
 
   protected edit(f: FocusArea): void {
     this.templateCode = f.templateCode;
     this.editingId.set(f.id);
-    this.form.reset({ name: f.name, keywords: f.keywords.join(', '), eventTypes: f.eventTypes, provinces: f.provinces,
-      includeClosed: f.includeClosed, notifyMe: f.notifyMe });
+    this.form.reset({ name: f.name, keywords: f.keywords.join(', '), excludeKeywords: f.excludeKeywords.join(', '),
+      eventTypes: f.eventTypes, provinces: f.provinces, includeClosed: f.includeClosed, searchDocuments: f.searchDocuments,
+      notifyMe: f.notifyMe });
     this.editing.set(true);
   }
 
@@ -207,8 +226,9 @@ export class FocusComponent {
     const v = this.form.getRawValue();
     const body: FocusRequest = {
       name: v.name.trim(), templateCode: this.templateCode,
-      keywords: v.keywords.split(',').map((k) => k.trim()).filter((k) => k.length > 0),
-      eventTypes: v.eventTypes, provinces: v.provinces, sectors: [], includeClosed: v.includeClosed, notifyMe: v.notifyMe,
+      keywords: splitList(v.keywords), excludeKeywords: splitList(v.excludeKeywords),
+      eventTypes: v.eventTypes, provinces: v.provinces, sectors: [], includeClosed: v.includeClosed,
+      searchDocuments: v.searchDocuments, notifyMe: v.notifyMe,
     };
     if (!body.keywords.length && !body.eventTypes.length) {
       this.error.set('Add at least one keyword or opportunity type.');

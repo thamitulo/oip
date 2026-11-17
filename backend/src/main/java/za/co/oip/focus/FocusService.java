@@ -39,15 +39,23 @@ public class FocusService {
                                 List<GuidanceLink> guidance) {
     }
 
+    /**
+     * @param excludeKeywords words that rule an opportunity out when they appear in its title or description
+     * @param searchDocuments also match keywords found only inside tender documents (broader; ranked last)
+     */
     public record FocusArea(UUID id, String name, String description, String templateCode, List<String> keywords,
-                            List<EventType> eventTypes, List<String> provinces, List<String> sectors, boolean includeClosed,
-                            boolean notifyMe, Instant createdAt, Instant updatedAt, List<GuidanceLink> guidance) {
+                            List<String> excludeKeywords, List<EventType> eventTypes, List<String> provinces,
+                            List<String> sectors, boolean includeClosed, boolean searchDocuments, boolean notifyMe,
+                            Instant createdAt, Instant updatedAt, List<GuidanceLink> guidance) {
     }
 
     public record FocusRequest(String name, String description, String templateCode, List<String> keywords,
-                               List<EventType> eventTypes, List<String> provinces, List<String> sectors, Boolean includeClosed,
-                               Boolean notifyMe) {
+                               List<String> excludeKeywords, List<EventType> eventTypes, List<String> provinces,
+                               List<String> sectors, Boolean includeClosed, Boolean searchDocuments, Boolean notifyMe) {
     }
+
+    /** Short all-capitals terms ("IT", "ICT", "PLAS") that full-text search would drop as stop words or lowercase. */
+    private static final java.util.regex.Pattern ACRONYM = java.util.regex.Pattern.compile("[A-Z0-9&]{2,8}");
 
     /** Verified 2026-11-11 (HTTP 200). */
     static final FocusTemplate STATE_LAND = new FocusTemplate("STATE_LAND_LEASE", "State land to lease",
@@ -91,9 +99,9 @@ public class FocusService {
         UUID id = UUID.randomUUID();
         Timestamp now = Timestamp.from(clock.instant());
         jdbc.update("""
-                insert into focus_areas (id, tenant_id, user_id, name, description, template_code, keywords, event_types, provinces,
-                  sectors, include_closed, notify, created_at, updated_at)
-                values (:id, :t, :u, :name, :desc, :tpl, :kw, :et, :prov, :sec, :closed, :notify, :now, :now)""",
+                insert into focus_areas (id, tenant_id, user_id, name, description, template_code, keywords, exclude_keywords,
+                  event_types, provinces, sectors, include_closed, search_documents, notify, created_at, updated_at)
+                values (:id, :t, :u, :name, :desc, :tpl, :kw, :ex, :et, :prov, :sec, :closed, :docs, :notify, :now, :now)""",
                 n.params().addValue("id", id).addValue("t", user.tenantId()).addValue("u", user.userId()).addValue("now", now));
         return get(user, id);
     }
@@ -103,8 +111,9 @@ public class FocusService {
         get(user, id);
         Normalised n = normalise(r);
         jdbc.update("""
-                update focus_areas set name = :name, description = :desc, template_code = :tpl, keywords = :kw, event_types = :et,
-                  provinces = :prov, sectors = :sec, include_closed = :closed, notify = :notify, updated_at = :now
+                update focus_areas set name = :name, description = :desc, template_code = :tpl, keywords = :kw,
+                  exclude_keywords = :ex, event_types = :et, provinces = :prov, sectors = :sec, include_closed = :closed,
+                  search_documents = :docs, notify = :notify, updated_at = :now
                 where id = :id and tenant_id = :t and user_id = :u""",
                 n.params().addValue("id", id).addValue("t", user.tenantId()).addValue("u", user.userId())
                         .addValue("now", Timestamp.from(clock.instant())));
@@ -126,15 +135,18 @@ public class FocusService {
         return found.getFirst();
     }
 
-    /** Opportunities matching a focus area, soonest-closing first. */
+    /**
+     * Opportunities matching a focus area: strongest evidence first (type or title, then description, then document
+     * text when enabled), soonest-closing first within each tier.
+     */
     @Transactional(readOnly = true)
     public PageResponse<OpportunitySummaryDto> opportunities(AuthenticatedUser user, UUID id, int page, int size) {
         FocusArea f = get(user, id);
         Query q = query(f, null);
         long total = jdbc.queryForObject("select count(*) " + q.sql(), q.params(), Long.class);
         q.params().addValue("limit", size).addValue("offset", (long) page * size);
-        List<UUID> ids = jdbc.queryForList("select o.id " + q.sql()
-                + " order by o.closing_date asc nulls last, o.first_discovered_at desc limit :limit offset :offset", q.params(), UUID.class);
+        List<UUID> ids = jdbc.queryForList("select o.id " + q.sql() + " order by " + q.tier()
+                + ", o.closing_date asc nulls last, o.first_discovered_at desc, o.id limit :limit offset :offset", q.params(), UUID.class);
         return new PageResponse<>(opportunities.summaries(ids), page, size, total, (int) Math.ceil(total / (double) size));
     }
 
@@ -143,10 +155,12 @@ public class FocusService {
     public List<UUID> newMatches(FocusArea f, Instant since, int limit) {
         Query q = query(f, since);
         q.params().addValue("limit", limit);
-        return jdbc.queryForList("select o.id " + q.sql() + " order by o.first_discovered_at desc limit :limit", q.params(), UUID.class);
+        return jdbc.queryForList("select o.id " + q.sql() + " order by " + q.tier() + ", o.first_discovered_at desc limit :limit",
+                q.params(), UUID.class);
     }
 
-    record Query(String sql, MapSqlParameterSource params) {
+    /** {@code sql} is the from/where clause; {@code tier} ranks a row 1 (strong) to 3 (document text only). */
+    record Query(String sql, String tier, MapSqlParameterSource params) {
     }
 
     Query query(FocusArea f, Instant discoveredSince) {
@@ -156,17 +170,41 @@ public class FocusService {
                 from opportunities o join source_registry s on s.id = o.source_id
                 left join procurement_organisations org on org.id = o.organisation_id
                 where o.duplicate_of_id is null""");
-        List<String> any = new ArrayList<>();
+        // Evidence tiers: 1 = opportunity type or title/reference, 2 = description/category/locality, 3 = document text.
+        List<String> strong = new ArrayList<>();
+        List<String> medium = new ArrayList<>();
+        String documents = null;
         if (!f.eventTypes().isEmpty()) {
-            any.add("o.event_type in (:types)");
+            strong.add("o.event_type in (:types)");
             p.addValue("types", f.eventTypes().stream().map(Enum::name).toList());
         }
         if (!f.keywords().isEmpty()) {
-            any.add("(o.search_vector @@ websearch_to_tsquery('english', :kw) or exists (select 1 from source_documents sd "
-                    + "where sd.opportunity_id = o.id and sd.text_vector @@ websearch_to_tsquery('english', :kw)))");
-            p.addValue("kw", String.join(" or ", f.keywords().stream().map(k -> "\"" + k.replace("\"", "") + "\"").toList()));
+            strong.add("o.title_vector @@ websearch_to_tsquery('english', :kw)");
+            medium.add("o.search_vector @@ websearch_to_tsquery('english', :kw)");
+            p.addValue("kw", tsQuery(f.keywords()));
+            List<String> acronyms = f.keywords().stream().filter(k -> ACRONYM.matcher(k).matches()).toList();
+            if (!acronyms.isEmpty()) {
+                // Case-sensitive whole-word match, so "IT" finds "IT support" but not "it".
+                strong.add("(o.title ~ :acr or o.reference_number ~ :acr)");
+                medium.add("o.description ~ :acr");
+                p.addValue("acr", "\\m(" + String.join("|", acronyms.stream().map(a -> a.replace("&", "\\&")).toList()) + ")\\M");
+            }
+            if (f.searchDocuments()) {
+                documents = "exists (select 1 from source_documents sd where sd.opportunity_id = o.id"
+                        + " and sd.text_vector @@ websearch_to_tsquery('english', :kw))";
+            }
         }
+        String strongSql = "(" + String.join(" or ", strong) + ")";
+        String mediumSql = medium.isEmpty() ? "false" : "(" + String.join(" or ", medium) + ")";
+        List<String> any = new ArrayList<>(List.of(strongSql));
+        if (!medium.isEmpty()) any.add(mediumSql);
+        if (documents != null) any.add(documents);
         sql.append(" and (").append(String.join(" or ", any)).append(")");
+        if (!f.excludeKeywords().isEmpty()) {
+            sql.append(" and not (o.search_vector @@ websearch_to_tsquery('english', :ex))");
+            p.addValue("ex", tsQuery(f.excludeKeywords()));
+        }
+        String tier = "case when " + strongSql + " then 1 when " + mediumSql + " then 2 else 3 end";
         if (!f.provinces().isEmpty()) {
             // Opportunities without a published province are kept: the location is often only in the advert.
             sql.append(" and (o.province in (:provinces) or o.province is null)");
@@ -186,7 +224,12 @@ public class FocusService {
             sql.append(" and o.first_discovered_at >= :since");
             p.addValue("since", Timestamp.from(discoveredSince));
         }
-        return new Query(sql.toString(), p);
+        return new Query(sql.toString(), tier, p);
+    }
+
+    /** Each keyword is a quoted phrase; any phrase may match. */
+    private static String tsQuery(List<String> keywords) {
+        return String.join(" or ", keywords.stream().map(k -> "\"" + k.replace("\"", "") + "\"").toList());
     }
 
     // ------------------------------------------------------------------ helpers
@@ -216,8 +259,11 @@ public class FocusService {
         if (desc != null && desc.length() > 1000) throw new BusinessRuleException("Description is too long");
         String kw = String.join("|", keywords);
         if (kw.length() > 2000) throw new BusinessRuleException("Too many keywords");
+        String ex = String.join("|", clean(r.excludeKeywords(), 50));
+        if (ex.length() > 2000) throw new BusinessRuleException("Too many excluded words");
         return new Normalised(new MapSqlParameterSource("name", name).addValue("desc", desc).addValue("tpl", template)
-                .addValue("kw", kw.isEmpty() ? null : kw)
+                .addValue("kw", kw.isEmpty() ? null : kw).addValue("ex", ex.isEmpty() ? null : ex)
+                .addValue("docs", Boolean.TRUE.equals(r.searchDocuments()))
                 .addValue("et", types.isEmpty() ? null : String.join(",", types.stream().map(Enum::name).toList()))
                 .addValue("prov", provinces.isEmpty() ? null : String.join(",", provinces))
                 .addValue("sec", sectors.isEmpty() ? null : String.join(",", sectors))
@@ -226,7 +272,8 @@ public class FocusService {
 
     private static List<String> clean(List<String> values, int max) {
         if (values == null) return List.of();
-        List<String> out = values.stream().filter(v -> v != null && !v.isBlank()).map(String::trim)
+        // "|" separates stored values.
+        List<String> out = values.stream().filter(v -> v != null && !v.isBlank()).map(v -> v.replace('|', ' ').trim())
                 .filter(v -> v.length() <= 100).distinct().toList();
         if (out.size() > max) throw new BusinessRuleException("At most " + max + " values allowed");
         return out;
@@ -237,10 +284,10 @@ public class FocusService {
         List<GuidanceLink> guidance = TEMPLATES.stream().filter(t -> t.code().equals(tpl)).findFirst()
                 .map(FocusTemplate::guidance).orElse(List.of());
         return new FocusArea(rs.getObject("id", UUID.class), rs.getString("name"), rs.getString("description"), tpl,
-                split(rs.getString("keywords"), "\\|"),
+                split(rs.getString("keywords"), "\\|"), split(rs.getString("exclude_keywords"), "\\|"),
                 split(rs.getString("event_types"), ",").stream().map(EventType::valueOf).toList(),
                 split(rs.getString("provinces"), ","), split(rs.getString("sectors"), ","),
-                rs.getBoolean("include_closed"), rs.getBoolean("notify"),
+                rs.getBoolean("include_closed"), rs.getBoolean("search_documents"), rs.getBoolean("notify"),
                 rs.getTimestamp("created_at").toInstant(), rs.getTimestamp("updated_at").toInstant(), guidance);
     }
 

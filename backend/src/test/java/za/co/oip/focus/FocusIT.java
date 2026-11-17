@@ -149,6 +149,57 @@ class FocusIT extends IntegrationTest {
     }
 
     @Test
+    void focusRanksTitleMatchesAndKeepsDocumentOnlyMatchesOptIn() throws Exception {
+        seededDlrrdConfigurationParsesStateFarmAdverts();
+        Session user = api().registerTenant("Precise Co " + marker);
+        Opportunity marah = opportunities.findAll().stream()
+                .filter(o -> o.getTitle() != null && o.getTitle().contains("Marah Farm " + marker)).findFirst().orElseThrow();
+        // A word that appears only inside the Marah advert's document text (boilerplate-style match).
+        String docWord = marker + "boilerplate";
+        UUID docId = UUID.randomUUID();
+        jdbc.update("insert into opportunity_documents (id, opportunity_id, url, first_seen_at, last_seen_at) values (?, ?, ?, now(), now())",
+                docId, marah.getId(), server.url("/docs/" + marker + ".pdf"));
+        jdbc.update("insert into source_documents (id, opportunity_document_id, opportunity_id, status, text_content, created_at, updated_at)"
+                + " values (?, ?, ?, 'EXTRACTED', ?, now(), now())", UUID.randomUUID(), docId, marah.getId(), "Terms apply " + docWord + ".");
+
+        Map<String, Object> focus = new HashMap<>();
+        focus.put("name", "Docs");
+        focus.put("keywords", List.of(docWord));
+        String id = api().read(api().post("/api/v1/focus", user, focus).andExpect(status().isCreated())).get("id").asString();
+        api().get("/api/v1/focus/" + id + "/opportunities", user).andExpect(jsonPath("$.totalElements").value(0));
+
+        focus.put("searchDocuments", true);
+        api().put("/api/v1/focus/" + id, user, focus).andExpect(status().isOk()).andExpect(jsonPath("$.searchDocuments").value(true));
+        api().get("/api/v1/focus/" + id + "/opportunities", user)
+                .andExpect(jsonPath("$.totalElements").value(1)).andExpect(jsonPath("$.content[0].id").value(marah.getId().toString()));
+
+        // Title matches rank above document-only matches; excluded words remove a result.
+        // Marah closes sooner, but the title match ranks above it.
+        focus.put("keywords", List.of(docWord, marker + " 508"));
+        api().put("/api/v1/focus/" + id, user, focus).andExpect(status().isOk());
+        JsonNode ranked = api().read(api().get("/api/v1/focus/" + id + "/opportunities", user));
+        assertThat(ranked.get("totalElements").asInt()).isEqualTo(2);
+        assertThat(ranked.get("content").get(0).get("title").asString()).contains(marker + " 508 IS");
+        assertThat(ranked.get("content").get(1).get("id").asString()).isEqualTo(marah.getId().toString());
+        focus.put("keywords", List.of(docWord, marker));
+        focus.put("excludeKeywords", List.of("Marah"));
+        api().put("/api/v1/focus/" + id, user, focus).andExpect(status().isOk());
+        JsonNode excluded = api().read(api().get("/api/v1/focus/" + id + "/opportunities", user));
+        assertThat(excluded.get("totalElements").asInt()).isEqualTo(1);
+        assertThat(excluded.get("content").get(0).get("title").asString()).contains(marker + " 508 IS");
+
+        // Acronyms that are English stop words ("IS") still match, case-sensitively, as whole words.
+        Map<String, Object> acronym = new HashMap<>();
+        acronym.put("name", "Acronym");
+        acronym.put("keywords", List.of("IS"));
+        String acrId = api().read(api().post("/api/v1/focus", user, acronym).andExpect(status().isCreated())).get("id").asString();
+        List<String> titles = new java.util.ArrayList<>();
+        api().read(api().get("/api/v1/focus/" + acrId + "/opportunities?size=100", user)).get("content")
+                .forEach(n -> titles.add(n.get("title").asString()));
+        assertThat(titles).anyMatch(t -> t.contains(marker + " 508 IS"));
+    }
+
+    @Test
     void seededSourceIsRegisteredWithVerificationNotes() {
         Map<String, Object> s = jdbc.queryForMap("select enabled, integration_status, adapter_type, terms_review_status, robots_policy, "
                 + "licence_notes, verification_notes from source_registry where id = 'c0000000-0000-0000-0000-000000000040'");

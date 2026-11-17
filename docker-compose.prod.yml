@@ -1,0 +1,129 @@
+# Production stack for a single VM (e.g. AWS Lightsail 4 GB). See docs/DEPLOYMENT.md.
+#   cp .env.production.example .env   # fill in every value
+#   docker compose -f docker-compose.prod.yml up -d --build
+# Only Caddy is reachable from outside (ports 80/443). It obtains and renews the HTTPS certificate for OIP_DOMAIN.
+name: oip
+
+x-logging: &logging
+  driver: json-file
+  options: { max-size: "20m", max-file: "5" }
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: oip
+      POSTGRES_USER: oip
+      POSTGRES_PASSWORD: ${OIP_DB_PASSWORD:?Set OIP_DB_PASSWORD in .env}
+    volumes:
+      - oip-postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U oip -d oip"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+    mem_limit: 768m
+    logging: *logging
+
+  backend:
+    build: ./backend
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      OIP_DB_URL: jdbc:postgresql://postgres:5432/oip
+      OIP_DB_USERNAME: oip
+      OIP_DB_PASSWORD: ${OIP_DB_PASSWORD}
+      OIP_JWT_SECRET: ${OIP_JWT_SECRET:?Set OIP_JWT_SECRET in .env}
+      OIP_APP_URL: https://${OIP_DOMAIN:?Set OIP_DOMAIN in .env}
+      OIP_CORS_ALLOWED_ORIGINS: https://${OIP_DOMAIN}
+      OIP_BOOTSTRAP_ADMIN_EMAIL: ${OIP_BOOTSTRAP_ADMIN_EMAIL:-}
+      OIP_BOOTSTRAP_ADMIN_PASSWORD: ${OIP_BOOTSTRAP_ADMIN_PASSWORD:-}
+      # Caddy replaces any client-supplied X-Forwarded-For, so the real client IP reaches the auth rate limiter.
+      OIP_FORWARD_HEADERS_STRATEGY: framework
+      OIP_SECURE_COOKIES: "true"
+      OIP_CRAWLER_SCHEDULER_ENABLED: ${OIP_CRAWLER_SCHEDULER_ENABLED:-true}
+      OIP_CRAWLER_USER_AGENT: ${OIP_CRAWLER_USER_AGENT:?Set OIP_CRAWLER_USER_AGENT with a contact URL}
+      OIP_LOG_FORMAT: ${OIP_LOG_FORMAT:-ecs}
+      OIP_STORAGE_DIR: /data/storage
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      OIP_MAIL_ENABLED: ${OIP_MAIL_ENABLED:-false}
+      OIP_MAIL_HOST: ${OIP_MAIL_HOST:-}
+      OIP_MAIL_PORT: ${OIP_MAIL_PORT:-587}
+      OIP_MAIL_USERNAME: ${OIP_MAIL_USERNAME:-}
+      OIP_MAIL_PASSWORD: ${OIP_MAIL_PASSWORD:-}
+      OIP_MAIL_FROM: ${OIP_MAIL_FROM:-}
+    volumes:
+      - oip-storage:/data/storage
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8080/actuator/health/readiness | grep -q UP"]
+      interval: 15s
+      timeout: 5s
+      retries: 40
+    mem_limit: 1800m
+    logging: *logging
+
+  frontend:
+    build: ./frontend
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy
+    mem_limit: 128m
+    logging: *logging
+
+  caddy:
+    image: caddy:2.10-alpine
+    restart: unless-stopped
+    depends_on: [frontend]
+    environment:
+      OIP_DOMAIN: ${OIP_DOMAIN}
+      OIP_ACME_EMAIL: ${OIP_ACME_EMAIL:-}
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    mem_limit: 128m
+    logging: *logging
+
+  # Nightly compressed database dump into the oip-backups volume, keeping OIP_BACKUP_KEEP_DAYS days.
+  # Copy them off the machine too (see docs/DEPLOYMENT.md: VM snapshots or deploy/backup-to-s3.sh).
+  backup:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      PGHOST: postgres
+      PGUSER: oip
+      PGDATABASE: oip
+      PGPASSWORD: ${OIP_DB_PASSWORD}
+      KEEP_DAYS: ${OIP_BACKUP_KEEP_DAYS:-14}
+    volumes:
+      - oip-backups:/backups
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        while true; do
+          f=/backups/oip-$$(date -u +%Y%m%dT%H%M%SZ).sql.gz
+          if pg_dump --no-owner | gzip > "$$f.tmp"; then mv "$$f.tmp" "$$f"; echo "backup written: $$f";
+          else rm -f "$$f.tmp"; echo "backup FAILED" >&2; fi
+          find /backups -name 'oip-*.sql.gz' -mtime +$$KEEP_DAYS -delete
+          sleep 86400
+        done
+    mem_limit: 256m
+    logging: *logging
+
+volumes:
+  oip-postgres:
+  oip-storage:
+  oip-backups:
+  caddy-data:
+  caddy-config:

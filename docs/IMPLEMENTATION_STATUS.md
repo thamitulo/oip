@@ -84,6 +84,8 @@ Live catalogue (2026-11-12): 2,096 active opportunities, 18 mining-related. Subm
 - [x] Notifications: new matches, closing soon, material changes, tasks due, source failures, focus matches
 - [x] In-app notifications; email (immediate or daily digest) via SMTP, with mailpit in Compose
 - [x] "My focus" areas, with a state-land-lease template fed by the DLRRD source
+- [x] Focus results ranked by evidence (type/title, then description, then document text); document-only matches
+      are opt-in, exclude words, and all-capitals acronyms (IT, ICT) matched exactly even when they are stop words
 
 ## Phase 8 — Analytics and production readiness ◐ mostly done
 

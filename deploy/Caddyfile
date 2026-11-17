@@ -1,0 +1,15 @@
+# Public entry point: automatic HTTPS (Let's Encrypt) for OIP_DOMAIN, then the nginx frontend container.
+# Caddy ignores X-Forwarded-* headers sent by clients and sets them itself, so the backend sees the real client IP.
+{
+	email {$OIP_ACME_EMAIL}
+}
+
+{$OIP_DOMAIN} {
+	encode zstd gzip
+
+	# Operational endpoints stay on the internal network.
+	@internal path /actuator /actuator/*
+	respond @internal 404
+
+	reverse_proxy frontend:80
+}

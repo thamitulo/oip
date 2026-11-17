@@ -20,10 +20,12 @@ export interface FocusArea {
   description: string | null;
   templateCode: string | null;
   keywords: string[];
+  excludeKeywords: string[];
   eventTypes: string[];
   provinces: string[];
   sectors: string[];
   includeClosed: boolean;
+  searchDocuments: boolean;
   notifyMe: boolean;
   createdAt: string;
   updatedAt: string;
@@ -35,10 +37,12 @@ export interface FocusRequest {
   description?: string | null;
   templateCode?: string | null;
   keywords: string[];
+  excludeKeywords: string[];
   eventTypes: string[];
   provinces: string[];
   sectors: string[];
   includeClosed: boolean;
+  searchDocuments: boolean;
   notifyMe: boolean;
 }
 
