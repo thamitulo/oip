@@ -67,6 +67,12 @@ fixes its chain.
   the user is the sole owner of a business with other members).
 - Retention (nightly, configurable in `system_settings`): sessions 30 days after expiry, notifications 180 days,
   observation excerpts 180 days, audit events 730 days, stored originals 90 days after closing.
+- Directors' / members' identity numbers (SBD 4) are encrypted with AES-256-GCM before storage
+  (`OIP_DATA_ENCRYPTION_KEY`, 32 random bytes, base64). Only the last four digits are stored in clear, for masking.
+  The API never returns full numbers. Only `COMPANY_PROFILE_EDIT` holders can list or change directors. Form-fill
+  drafts store masked values only; the real numbers are decrypted into a filled PDF at generation, for those same
+  users, and that PDF is a tenant-scoped bid document. Without the key, identity numbers cannot be saved and nothing
+  else is affected. **Back the key up separately from the database**: without it, stored numbers cannot be read.
 - Still to do: a published privacy notice and terms of use (legal text), and an operator process for requests
   received outside the app.
 
@@ -88,6 +94,11 @@ archives, executables and unsupported types inside are listed as not extracted.
 Uploads (25 MB max) are type-checked from their bytes against an allow-list; storage keys are platform-generated
 and validated against path traversal; downloads are served as attachments with `nosniff`; company documents are
 tenant-scoped.
+
+Tender form filling: forms are read with PDFBox and, for scanned pages, the local Tesseract binary (`tesseract`,
+started with a fixed argument list, a timeout and a private temp file that is always deleted). No document or
+company data leaves the server. Filled PDFs are written onto a copy; the original is never changed. Owner-password
+restrictions on tender PDFs are removed on the copy only, so it can be filled.
 
 ## Secrets
 

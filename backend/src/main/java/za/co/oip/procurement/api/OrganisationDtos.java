@@ -33,8 +33,12 @@ public final class OrganisationDtos {
                                    String verificationNotes) {
     }
 
+    public record MiningOperationDto(UUID id, String name, String province, String locality, String commodity) {
+    }
+
     public record OrganisationDetailDto(OrganisationSummaryDto organisation, String notes, String primaryCommodities,
-                                        List<ChannelDto> channels, List<SourceSummaryDto> sources) {
+                                        List<ChannelDto> channels, List<SourceSummaryDto> sources,
+                                        List<MiningOperationDto> operations) {
     }
 
     public record SupplierPlatformDto(UUID id, String name, PlatformType platformType, String website,

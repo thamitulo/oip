@@ -6,12 +6,14 @@ import org.springframework.transaction.annotation.Transactional;
 import za.co.oip.common.api.PageResponse;
 import za.co.oip.common.error.Exceptions.NotFoundException;
 import za.co.oip.procurement.api.OrganisationDtos.ChannelDto;
+import za.co.oip.procurement.api.OrganisationDtos.MiningOperationDto;
 import za.co.oip.procurement.api.OrganisationDtos.OrganisationDetailDto;
 import za.co.oip.procurement.api.OrganisationDtos.OrganisationSummaryDto;
 import za.co.oip.procurement.api.OrganisationDtos.SourceSummaryDto;
 import za.co.oip.procurement.api.OrganisationDtos.SupplierPlatformDto;
 import za.co.oip.procurement.domain.MiningCompany;
 import za.co.oip.procurement.domain.MiningCompanyRepository;
+import za.co.oip.procurement.domain.MiningOperationRepository;
 import za.co.oip.procurement.domain.ProcurementChannelRepository;
 import za.co.oip.procurement.domain.ProcurementEnums.Sector;
 import za.co.oip.procurement.domain.ProcurementOrganisation;
@@ -32,13 +34,16 @@ public class OrganisationQueryService {
     private final ProcurementChannelRepository channelRepository;
     private final SupplierPlatformRepository platformRepository;
     private final MiningCompanyRepository miningCompanyRepository;
+    private final MiningOperationRepository operationRepository;
     private final SourceRepository sourceRepository;
 
     public OrganisationQueryService(ProcurementOrganisationRepository organisationRepository,
                                     ProcurementChannelRepository channelRepository,
                                     SupplierPlatformRepository platformRepository,
                                     MiningCompanyRepository miningCompanyRepository,
+                                    MiningOperationRepository operationRepository,
                                     SourceRepository sourceRepository) {
+        this.operationRepository = operationRepository;
         this.organisationRepository = organisationRepository;
         this.channelRepository = channelRepository;
         this.platformRepository = platformRepository;
@@ -67,9 +72,13 @@ public class OrganisationQueryService {
                 .map(s -> new SourceSummaryDto(s.getId(), s.getName(), s.getSourceUrl(), s.getIntegrationStatus(),
                         s.isEnabled(), s.getLastSuccessfulCrawlAt(), s.getLastVerifiedAt(), s.getVerificationNotes()))
                 .toList();
-        String commodities = miningCompanyRepository.findByOrganisationId(id)
-                .map(MiningCompany::getPrimaryCommodities).orElse(null);
-        return new OrganisationDetailDto(summary(org), org.getNotes(), commodities, channels, sources);
+        MiningCompany mining = miningCompanyRepository.findByOrganisationId(id).orElse(null);
+        List<MiningOperationDto> operations = mining == null ? List.of()
+                : operationRepository.findByMiningCompanyIdOrderByNameAsc(mining.getId()).stream()
+                .map(o -> new MiningOperationDto(o.getId(), o.getName(), o.getProvince(), o.getLocality(), o.getCommodity()))
+                .toList();
+        return new OrganisationDetailDto(summary(org), org.getNotes(), mining == null ? null : mining.getPrimaryCommodities(),
+                channels, sources, operations);
     }
 
     @Transactional(readOnly = true)

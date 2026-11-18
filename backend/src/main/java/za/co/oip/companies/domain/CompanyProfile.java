@@ -79,6 +79,28 @@ public class CompanyProfile extends BaseEntity {
     @Column(name = "contact_phone")
     private String contactPhone;
 
+    // Details asked for on tender returnable forms (SBD 1, SBD 4, SBD 6.1, MBD).
+    @Column(name = "csd_supplier_number")
+    private String csdSupplierNumber;
+    @Column(name = "income_tax_number")
+    private String incomeTaxNumber;
+    @Column(name = "uif_reference_number")
+    private String uifReferenceNumber;
+    @Column(name = "compensation_fund_number")
+    private String compensationFundNumber;
+    @Column(name = "cidb_crs_number")
+    private String cidbCrsNumber;
+    @Column(name = "physical_address")
+    private String physicalAddress;
+    @Column(name = "postal_address")
+    private String postalAddress;
+    @Column(name = "bbbee_certificate_number")
+    private String bbbeeCertificateNumber;
+    @Column(name = "bbbee_certificate_expiry")
+    private java.time.LocalDate bbbeeCertificateExpiry;
+    @Column(name = "bbbee_verification_agency")
+    private String bbbeeVerificationAgency;
+
     @OneToMany(mappedBy = "profile", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<Industry> industries = new ArrayList<>();
     @OneToMany(mappedBy = "profile", cascade = CascadeType.ALL, orphanRemoval = true)

@@ -47,6 +47,20 @@ public record CrawlerProperties(String userAgent,
         }
     }
 
+    /** Contact hosts from the example configuration files, which tell source operators nothing. */
+    private static final java.util.List<String> PLACEHOLDER_CONTACTS =
+            java.util.List.of("example.invalid", "example.com", "example.org", "example.co.za", "your-domain", "localhost");
+
+    /**
+     * Whether the user agent lacks a real contact: no URL or e-mail at all, or one still pointing at a placeholder
+     * from {@code .env.example} / {@code .env.production.example}.
+     */
+    public boolean lacksRealContact() {
+        String ua = userAgent.toLowerCase(java.util.Locale.ROOT);
+        boolean hasContact = ua.contains("http://") || ua.contains("https://") || ua.contains("@");
+        return !hasContact || PLACEHOLDER_CONTACTS.stream().anyMatch(ua::contains);
+    }
+
     /** The product token matched against robots.txt user-agent lines. */
     public String robotsToken() {
         String token = userAgent.split("[/ ]")[0];

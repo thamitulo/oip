@@ -20,6 +20,7 @@ export const routes: Routes = [
       { path: 'mining', title: 'Mining opportunities', data: { sector: 'MINING' }, loadComponent: () => import('./features/opportunities/opportunity-list.component').then((m) => m.OpportunityListComponent) },
       { path: 'government', title: 'Government tenders', data: { sector: 'GOVERNMENT' }, loadComponent: () => import('./features/opportunities/opportunity-list.component').then((m) => m.OpportunityListComponent) },
       { path: 'opportunities/:id', title: 'Opportunity', loadComponent: () => import('./features/opportunities/opportunity-detail.component').then((m) => m.OpportunityDetailComponent) },
+      { path: 'opportunities/:id/forms/:fillId', title: 'Fill tender form', loadComponent: () => import('./features/forms/form-fill.component').then((m) => m.FormFillComponent) },
       { path: 'recommended', title: 'Recommended', loadComponent: () => import('./features/work/recommended.component').then((m) => m.RecommendedComponent) },
       { path: 'focus', title: 'My focus', loadComponent: () => import('./features/focus/focus.component').then((m) => m.FocusComponent) },
       { path: 'pipeline', title: 'Bid pipeline', loadComponent: () => import('./features/work/pipeline.component').then((m) => m.PipelineComponent) },

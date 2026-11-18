@@ -214,6 +214,8 @@ export interface ChannelRequest {
   verificationStatus: string;
 }
 export interface SupplierPlatformSummary { id: string; name: string; }
+export interface MiningOperation { id: string; name: string; province: string | null; locality: string | null; commodity: string | null; }
+export type MiningOperationRequest = Omit<MiningOperation, 'id'>;
 
 export interface OrganisationDetail {
   organisation: OrganisationSummary;
@@ -221,6 +223,8 @@ export interface OrganisationDetail {
   primaryCommodities: string | null;
   channels: { id: string; channelType: string; name: string; url: string | null; supplierPlatform: string | null; description: string | null; verificationStatus: string; lastVerifiedAt: string | null; supplierPlatformId: string | null }[];
   sources: { id: string; name: string; sourceUrl: string | null; integrationStatus: IntegrationStatus; enabled: boolean; lastSuccessfulCrawlAt: string | null; lastVerifiedAt: string | null; verificationNotes: string | null }[];
+  /** Mines, plants and sites; only mining-sector organisations have them. */
+  operations: MiningOperation[];
 }
 
 export type VerificationStatus = 'SELF_DECLARED' | 'DOCUMENT_PROVIDED' | 'VERIFIED' | 'EXPIRED';
@@ -256,6 +260,46 @@ export interface CompanyProfile {
   registrations: { registrationType: string; registrationBody: string; registrationNumber: string | null; validUntil: string | null; verificationStatus: VerificationStatus }[];
   capabilities: { name: string; description: string | null; yearsExperience: number | null }[];
   references: { clientName: string; projectTitle: string; description: string | null; sector: string | null; contractValue: number | null; yearCompleted: number | null }[];
+  // Details used to pre-fill tender forms
+  csdSupplierNumber: string | null;
+  incomeTaxNumber: string | null;
+  uifReferenceNumber: string | null;
+  compensationFundNumber: string | null;
+  cidbCrsNumber: string | null;
+  physicalAddress: string | null;
+  postalAddress: string | null;
+  bbbeeCertificateNumber: string | null;
+  bbbeeCertificateExpiry: string | null;
+  bbbeeVerificationAgency: string | null;
+}
+
+export type DirectorRole = 'DIRECTOR' | 'MEMBER' | 'SHAREHOLDER' | 'TRUSTEE';
+/** Identity numbers are never sent back in full: only `idNumberMasked`. */
+export interface Director {
+  id: string; fullName: string; role: DirectorRole; idType: 'SA_ID' | 'PASSPORT' | null; idNumberMasked: string | null;
+  incomeTaxNumber: string | null; shareholdingPercentage: number | null; inServiceOfState: boolean;
+}
+/** `idNumber`: omit/null keeps the stored number, '' removes it. */
+export interface DirectorRequest {
+  fullName: string; role: DirectorRole; idType: 'SA_ID' | 'PASSPORT' | null; idNumber?: string | null;
+  incomeTaxNumber: string | null; shareholdingPercentage: number | null; inServiceOfState: boolean;
+}
+
+export interface BidDocument { id: string; fileName: string; contentType: string; sizeBytes: number; uploadedByName: string | null; uploadedAt: string; }
+
+export interface Placement {
+  id: string; page: number; x: number; y: number; width: number; height: number; fontSize: number;
+  field: string; fieldLabel: string | null; value: string; source: 'LABEL' | 'TABLE' | 'ACROFORM' | 'MANUAL';
+  confidence: number; labelText: string | null; acroField: string | null; missing: boolean; ref: string | null;
+}
+export interface FormFill {
+  id: string; opportunityId: string; fileName: string; status: 'DRAFT' | 'GENERATED'; pages: { width: number; height: number }[];
+  placements: Placement[]; warnings: string[]; ocrPages: number; bidDocumentId: string | null; idNumbersWithheld: boolean;
+}
+export interface Fillable {
+  documents: { opportunityDocumentId: string; title: string; zipEntry: string | null; status: 'READY' | 'NOT_DOWNLOADED' }[];
+  fills: { id: string; fileName: string; status: 'DRAFT' | 'GENERATED'; updatedAt: string; bidDocumentId: string | null }[];
+  ocrAvailable: boolean;
 }
 
 export interface Member {

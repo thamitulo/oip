@@ -7,7 +7,7 @@ import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import { ApiService, errorMessage } from '../../core/api.service';
 import { LabelPipe } from '../../core/format';
-import { ChannelRequest, OrganisationDetail, OrganisationRequest, PROVINCES, SupplierPlatformSummary } from '../../core/models';
+import { ChannelRequest, MiningOperation, MiningOperationRequest, OrganisationDetail, OrganisationRequest, PROVINCES, SupplierPlatformSummary } from '../../core/models';
 
 export const ORGANISATION_TYPES = ['NATIONAL_DEPARTMENT', 'PROVINCIAL_DEPARTMENT', 'MUNICIPALITY', 'MUNICIPAL_ENTITY', 'PUBLIC_ENTITY',
   'STATE_OWNED_COMPANY', 'EDUCATIONAL_INSTITUTION', 'WATER_BOARD', 'ENERGY_ENTITY', 'TRANSPORT_ENTITY', 'HEALTHCARE_INSTITUTION',
@@ -187,6 +187,73 @@ export class ChannelEditorComponent {
     this.busy.set(true);
     this.error.set(null);
     (c ? this.api.updateChannel(this.organisationId(), c.id, body) : this.api.addChannel(this.organisationId(), body)).subscribe({
+      next: (d) => { this.busy.set(false); this.saved.emit(d); },
+      error: (e) => { this.busy.set(false); this.error.set(errorMessage(e)); },
+    });
+  }
+}
+
+/** Mining operations (mines, plants, sites) of a mining-sector organisation: add and edit (platform administrators). */
+@Component({
+  selector: 'app-operation-editor',
+  imports: [ReactiveFormsModule, MatFormFieldModule, MatInputModule, MatSelectModule, MatButtonModule],
+  template: `
+    <form class="channel-form" [formGroup]="form" (ngSubmit)="save()">
+      <div class="form-grid">
+        <mat-form-field appearance="outline" class="wide"><mat-label>Operation name</mat-label><input matInput formControlName="name" placeholder="e.g. Tharisa Mine" /></mat-form-field>
+        <mat-form-field appearance="outline" class="wide"><mat-label>Commodity</mat-label><input matInput formControlName="commodity" placeholder="e.g. Chrome, PGMs" /></mat-form-field>
+        <mat-form-field appearance="outline" class="wide"><mat-label>Province</mat-label>
+          <mat-select formControlName="province"><mat-option [value]="null">Not specified</mat-option>
+            @for (p of provinces; track p.code) { <mat-option [value]="p.code">{{ p.label }}</mat-option> }</mat-select></mat-form-field>
+        <mat-form-field appearance="outline" class="wide"><mat-label>Town or locality</mat-label><input matInput formControlName="locality" /></mat-form-field>
+      </div>
+      @if (error()) { <div class="error-banner">{{ error() }}</div> }
+      <div class="row" style="justify-content:flex-end">
+        <button mat-button type="button" (click)="cancelled.emit()">Cancel</button>
+        <button mat-flat-button type="submit" [disabled]="form.invalid || busy()">{{ operation() ? 'Save operation' : 'Add operation' }}</button>
+      </div>
+    </form>
+  `,
+  styles: `
+    .channel-form { padding: 12px; margin: 8px 0; border: 1px dashed var(--oip-border-strong); border-radius: 8px; background: #fcfcfd; }
+    .form-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px 10px; }
+    .form-grid mat-form-field { width: 100%; }
+    .wide { grid-column: span 2; }
+    @media (max-width: 900px) { .form-grid { grid-template-columns: 1fr 1fr; } }
+  `,
+})
+export class OperationEditorComponent {
+  private readonly api = inject(ApiService);
+  readonly organisationId = input.required<string>();
+  readonly operation = input<MiningOperation | null>(null);
+  readonly saved = output<OrganisationDetail>();
+  readonly cancelled = output<void>();
+  protected readonly provinces = PROVINCES;
+  protected readonly busy = signal(false);
+  protected readonly error = signal<string | null>(null);
+  protected readonly form = inject(FormBuilder).group({
+    name: ['', [Validators.required, Validators.maxLength(200)]],
+    commodity: [null as string | null, Validators.maxLength(200)],
+    province: [null as string | null],
+    locality: [null as string | null, Validators.maxLength(200)],
+  });
+
+  constructor() {
+    effect(() => {
+      const o = this.operation();
+      if (o) this.form.reset({ name: o.name, commodity: o.commodity, province: o.province, locality: o.locality });
+    });
+  }
+
+  protected save(): void {
+    const v = this.form.getRawValue();
+    const body: MiningOperationRequest = {
+      name: (v.name ?? '').trim(), commodity: blank(v.commodity), province: v.province, locality: blank(v.locality),
+    };
+    const o = this.operation();
+    this.busy.set(true);
+    this.error.set(null);
+    (o ? this.api.updateOperation(this.organisationId(), o.id, body) : this.api.addOperation(this.organisationId(), body)).subscribe({
       next: (d) => { this.busy.set(false); this.saved.emit(d); },
       error: (e) => { this.busy.set(false); this.error.set(errorMessage(e)); },
     });

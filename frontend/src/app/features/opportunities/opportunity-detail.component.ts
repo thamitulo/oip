@@ -19,9 +19,11 @@ import { DateTimePipe, LabelPipe, formatClosing, formatDateTime, relativeDays, r
 import { ChangeEvent, Match, Member, OpportunityDetail, OpportunityDocument, PipelineDetail, Requirement, STAGES, Stage } from '../../core/models';
 import { UiStateService } from '../../core/ui-state.service';
 
+import { BidFormsComponent } from '../forms/bid-forms.component';
+
 @Component({
   selector: 'app-opportunity-detail',
-  imports: [RouterLink, FormsModule, MatButtonModule, MatIconModule, MatProgressBarModule, MatTooltipModule, MatTabsModule, MatSelectModule,
+  imports: [BidFormsComponent, RouterLink, FormsModule, MatButtonModule, MatIconModule, MatProgressBarModule, MatTooltipModule, MatTabsModule, MatSelectModule,
     MatFormFieldModule, MatInputModule, MatSnackBarModule, LabelPipe, DateTimePipe, CurrencyPipe],
   templateUrl: './opportunity-detail.component.html',
   styleUrl: './opportunity-detail.component.scss',

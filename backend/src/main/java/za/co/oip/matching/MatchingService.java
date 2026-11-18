@@ -189,9 +189,7 @@ public class MatchingService {
                 nz(p.commodities()), nz(p.operatingRegions()),
                 nz(p.capabilities()).stream().map(c -> new MatchingEngine.Capability(c.name(), c.description())).toList(),
                 nz(p.certifications()).stream().map(CompanyProfileDto.CertificationDto::name).toList(),
-                nz(p.registrations()).stream().map(r -> new MatchingEngine.Registration(r.registrationType().name(),
-                        r.registrationBody(), r.registrationNumber())).toList(),
-                p.cidbGrading(), bbbee);
+                registrations(p), p.cidbGrading(), bbbee);
         SettingsDto s = settings(tenantId);
         Weights w = new Weights(s.weightServices(), s.weightIndustry(), s.weightCapability(), s.weightGeography(),
                 s.weightRegistrations(), s.weightOther(), s.strongThreshold(), s.possibleThreshold());
@@ -275,6 +273,23 @@ public class MatchingService {
 
     private LocalDate today() {
         return LocalDate.now(clock.withZone(ParsingSupport.SOUTH_AFRICA));
+    }
+
+    /**
+     * Declared registrations, plus the CSD supplier number and income tax number from the company details, so a
+     * company does not have to enter the same number twice to count as CSD-registered or tax-registered.
+     */
+    static List<MatchingEngine.Registration> registrations(CompanyProfileDto p) {
+        List<MatchingEngine.Registration> out = new ArrayList<>(nz(p.registrations()).stream()
+                .map(r -> new MatchingEngine.Registration(r.registrationType().name(), r.registrationBody(), r.registrationNumber()))
+                .toList());
+        if (p.csdSupplierNumber() != null && out.stream().noneMatch(r -> "CSD".equals(r.type()))) {
+            out.add(new MatchingEngine.Registration("CSD", "National Treasury CSD", p.csdSupplierNumber()));
+        }
+        if (p.incomeTaxNumber() != null && out.stream().noneMatch(r -> "TAX".equals(r.type()))) {
+            out.add(new MatchingEngine.Registration("TAX", "SARS", p.incomeTaxNumber()));
+        }
+        return out;
     }
 
     private static <T> List<T> nz(List<T> l) {

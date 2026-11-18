@@ -15,11 +15,12 @@ import { LabelPipe } from '../../core/format';
 import { CompanyProfile, PROVINCES } from '../../core/models';
 import { ChipListInputComponent } from '../../shared/chip-list-input.component';
 import { CompanyDocumentsComponent } from './company-documents.component';
+import { DirectorsComponent } from './directors.component';
 
 @Component({
   selector: 'app-company-profile',
   imports: [ReactiveFormsModule, MatFormFieldModule, MatInputModule, MatSelectModule, MatButtonModule, MatIconModule,
-    MatCheckboxModule, MatProgressBarModule, MatSnackBarModule, ChipListInputComponent, LabelPipe, CompanyDocumentsComponent],
+    MatCheckboxModule, MatProgressBarModule, MatSnackBarModule, ChipListInputComponent, LabelPipe, CompanyDocumentsComponent, DirectorsComponent],
   templateUrl: './company-profile.component.html',
   styles: `
     .fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 0 16px; }
@@ -47,7 +48,18 @@ export class CompanyProfileComponent {
 
   protected readonly form = this.fb.group({
     legalName: ['', [Validators.required, Validators.maxLength(300)]],
-    tradingName: [''], registrationNumber: [''], vatNumber: [''],
+    tradingName: [''],
+    registrationNumber: ['', Validators.pattern(/^((CK ?)?\d{4}\/\d{6}\/\d{2})?$/)],
+    vatNumber: ['', Validators.pattern(/^(4\d{9})?$/)],
+    // Details asked for on tender forms (SBD 1, SBD 4, SBD 6.1, MBD); used to pre-fill them.
+    csdSupplierNumber: ['', Validators.pattern(/^(MAAA\d{7})?$/)],
+    incomeTaxNumber: ['', Validators.pattern(/^(\d{10})?$/)],
+    uifReferenceNumber: ['', [Validators.maxLength(30), Validators.pattern(REFERENCE)]],
+    compensationFundNumber: ['', [Validators.maxLength(30), Validators.pattern(REFERENCE)]],
+    cidbCrsNumber: ['', [Validators.maxLength(30), Validators.pattern(REFERENCE)]],
+    physicalAddress: ['', Validators.maxLength(500)], postalAddress: ['', Validators.maxLength(500)],
+    bbbeeCertificateNumber: ['', Validators.maxLength(100)], bbbeeCertificateExpiry: [null as string | null],
+    bbbeeVerificationAgency: ['', Validators.maxLength(200)],
     website: ['', Validators.pattern(/^(https?:\/\/.+)?$/)],
     description: [''], province: [null as string | null], city: [''],
     businessSize: [null as string | null], annualTurnoverBand: [''], bbbeeLevel: [null as string | null],
@@ -138,6 +150,9 @@ export class CompanyProfileComponent {
     this.form.markAsPristine();
   }
 }
+
+/** UIF, Compensation Fund and CRS numbers: letters, digits, spaces, '/' and '-'. */
+const REFERENCE = /^[A-Za-z0-9/ -]*$/;
 
 function emptyToNull<T extends object>(o: T): T {
   return Object.fromEntries(Object.entries(o).map(([k, v]) => [k, v === '' ? null : v])) as T;

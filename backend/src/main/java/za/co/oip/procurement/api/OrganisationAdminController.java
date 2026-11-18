@@ -18,11 +18,15 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 import za.co.oip.audit.AuditService;
+import za.co.oip.common.error.Exceptions.BusinessRuleException;
 import za.co.oip.common.error.Exceptions.ConflictException;
+import za.co.oip.common.reference.Province;
 import za.co.oip.common.error.Exceptions.NotFoundException;
 import za.co.oip.procurement.OrganisationQueryService;
 import za.co.oip.procurement.domain.MiningCompany;
 import za.co.oip.procurement.domain.MiningCompanyRepository;
+import za.co.oip.procurement.domain.MiningOperation;
+import za.co.oip.procurement.domain.MiningOperationRepository;
 import za.co.oip.procurement.domain.ProcurementChannel;
 import za.co.oip.procurement.domain.ProcurementChannelRepository;
 import za.co.oip.procurement.domain.ProcurementEnums.ChannelType;
@@ -37,7 +41,10 @@ import java.time.Clock;
 import java.util.Map;
 import java.util.UUID;
 
-/** Administration of organisations and their procurement channels (platform administrators; see SecurityConfig). */
+/**
+ * Administration of organisations, their procurement channels and (for mining companies) their operations.
+ * Platform administrators only; see SecurityConfig.
+ */
 @Tag(name = "Admin: organisations")
 @RestController
 @RequestMapping("/api/v1/admin/organisations")
@@ -46,13 +53,15 @@ public class OrganisationAdminController {
     private final ProcurementOrganisationRepository organisations;
     private final ProcurementChannelRepository channels;
     private final MiningCompanyRepository miningCompanies;
+    private final MiningOperationRepository operations;
     private final OrganisationQueryService queries;
     private final AuditService audit;
     private final Clock clock;
 
     public OrganisationAdminController(ProcurementOrganisationRepository organisations, ProcurementChannelRepository channels,
-                                       MiningCompanyRepository miningCompanies, OrganisationQueryService queries,
-                                       AuditService audit, Clock clock) {
+                                       MiningCompanyRepository miningCompanies, MiningOperationRepository operations,
+                                       OrganisationQueryService queries, AuditService audit, Clock clock) {
+        this.operations = operations;
         this.organisations = organisations;
         this.channels = channels;
         this.miningCompanies = miningCompanies;
@@ -71,6 +80,10 @@ public class OrganisationAdminController {
     public record ChannelRequest(@NotNull ChannelType channelType, @NotBlank @Size(max = 200) String name,
                                  @Size(max = 1000) @Pattern(regexp = "^(https?://.+)?$") String url, UUID supplierPlatformId,
                                  @Size(max = 5000) String description, @NotNull ChannelVerification verificationStatus) {
+    }
+
+    public record OperationRequest(@NotBlank @Size(max = 200) String name, Province province,
+                                   @Size(max = 200) String locality, @Size(max = 200) String commodity) {
     }
 
     @Operation(summary = "Create an organisation")
@@ -140,6 +153,78 @@ public class OrganisationAdminController {
         audit.record(null, "CHANNEL_DELETED", "ProcurementChannel", channelId, Map.of("name", c.getName()));
     }
 
+    @Operation(summary = "Add a mining operation (mine, plant or site) to a mining-sector organisation")
+    @PostMapping("/{id}/operations")
+    @ResponseStatus(HttpStatus.CREATED)
+    @Transactional
+    public OrganisationDtos.OrganisationDetailDto addOperation(@PathVariable UUID id, @Valid @RequestBody OperationRequest r) {
+        ProcurementOrganisation o = organisations.findById(id).orElseThrow(() -> new NotFoundException("Organisation", id));
+        if (o.getSector() != Sector.MINING) {
+            throw new BusinessRuleException("Operations can only be recorded for mining-sector organisations");
+        }
+        MiningCompany company = miningCompanies.findByOrganisationId(id).orElseGet(() -> newMiningCompany(id));
+        if (operations.existsByMiningCompanyIdAndNameIgnoreCase(company.getId(), r.name().trim())) {
+            throw new ConflictException("This organisation already has an operation with this name");
+        }
+        MiningOperation op = new MiningOperation();
+        op.setMiningCompanyId(company.getId());
+        op.setCreatedAt(clock.instant());
+        applyOperation(op, r);
+        operations.save(op);
+        audit.record(null, "MINING_OPERATION_CREATED", "MiningOperation", op.getId(), Map.of("name", op.getName()));
+        return queries.get(id);
+    }
+
+    @Operation(summary = "Update a mining operation")
+    @PutMapping("/{id}/operations/{operationId}")
+    @Transactional
+    public OrganisationDtos.OrganisationDetailDto updateOperation(@PathVariable UUID id, @PathVariable UUID operationId,
+                                                                  @Valid @RequestBody OperationRequest r) {
+        MiningOperation op = findOperation(id, operationId);
+        if (!op.getName().equalsIgnoreCase(r.name().trim())
+                && operations.existsByMiningCompanyIdAndNameIgnoreCase(op.getMiningCompanyId(), r.name().trim())) {
+            throw new ConflictException("This organisation already has an operation with this name");
+        }
+        applyOperation(op, r);
+        operations.save(op);
+        audit.record(null, "MINING_OPERATION_UPDATED", "MiningOperation", operationId, Map.of("name", op.getName()));
+        return queries.get(id);
+    }
+
+    @Operation(summary = "Delete a mining operation")
+    @DeleteMapping("/{id}/operations/{operationId}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    @Transactional
+    public void deleteOperation(@PathVariable UUID id, @PathVariable UUID operationId) {
+        MiningOperation op = findOperation(id, operationId);
+        operations.delete(op);
+        audit.record(null, "MINING_OPERATION_DELETED", "MiningOperation", operationId, Map.of("name", op.getName()));
+    }
+
+    /** The operation, provided it belongs to this organisation's mining company. */
+    private MiningOperation findOperation(UUID orgId, UUID operationId) {
+        UUID companyId = miningCompanies.findByOrganisationId(orgId).map(MiningCompany::getId)
+                .orElseThrow(() -> new NotFoundException("Operation", operationId));
+        return operations.findById(operationId).filter(x -> x.getMiningCompanyId().equals(companyId))
+                .orElseThrow(() -> new NotFoundException("Operation", operationId));
+    }
+
+    private void applyOperation(MiningOperation op, OperationRequest r) {
+        op.setName(r.name().trim());
+        op.setProvince(r.province() == null ? null : r.province().name());
+        op.setLocality(blank(r.locality()));
+        op.setCommodity(blank(r.commodity()));
+        op.setUpdatedAt(clock.instant());
+    }
+
+    private MiningCompany newMiningCompany(UUID orgId) {
+        MiningCompany n = new MiningCompany();
+        n.setOrganisationId(orgId);
+        n.setCreatedAt(clock.instant());
+        n.setUpdatedAt(clock.instant());
+        return miningCompanies.save(n);
+    }
+
     private void apply(ProcurementOrganisation o, OrganisationRequest r) {
         o.setName(r.name().trim());
         o.setShortName(blank(r.shortName()));
@@ -156,12 +241,7 @@ public class OrganisationAdminController {
 
     private void syncMining(ProcurementOrganisation o, OrganisationRequest r) {
         if (o.getSector() != Sector.MINING) return;
-        MiningCompany m = miningCompanies.findByOrganisationId(o.getId()).orElseGet(() -> {
-            MiningCompany n = new MiningCompany();
-            n.setOrganisationId(o.getId());
-            n.setCreatedAt(clock.instant());
-            return n;
-        });
+        MiningCompany m = miningCompanies.findByOrganisationId(o.getId()).orElseGet(() -> newMiningCompany(o.getId()));
         m.setPrimaryCommodities(blank(r.primaryCommodities()));
         m.setUpdatedAt(clock.instant());
         miningCompanies.save(m);

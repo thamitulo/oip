@@ -12,11 +12,11 @@ import java.util.zip.ZipOutputStream;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-class TextExtractorZipTest {
+public class TextExtractorZipTest {
 
     final TextExtractor extractor = new TextExtractor();
 
-    static byte[] zip(Map<String, byte[]> entries) throws Exception {
+    public static byte[] zip(Map<String, byte[]> entries) throws Exception {
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         try (ZipOutputStream z = new ZipOutputStream(out)) {
             for (var e : entries.entrySet()) {

@@ -36,6 +36,13 @@ Base path `/api/v1`. Interactive documentation: `/swagger-ui.html`; machine-read
 | GET/PUT | `/tenants/current` | PUT needs `TENANT_MANAGE`: `{name, timezone}` |
 | GET/PUT | `/companies/profile` | PUT needs `COMPANY_PROFILE_EDIT`; full replacement. `VERIFIED` cannot be self-assigned |
 | GET | `/companies/capabilities` | Declared capabilities |
+| GET/POST | `/companies/profile/directors` | `COMPANY_PROFILE_EDIT` only. Any number per company. `{fullName, role, idType, idNumber, incomeTaxNumber, shareholdingPercentage, inServiceOfState}`; responses carry `idNumberMasked` only |
+| PUT/DELETE | `/companies/profile/directors/{id}` | On PUT, `idNumber: null` keeps the stored number and `""` removes it. SA ID numbers are Luhn-checked (422) |
+
+The profile also carries the tender-form details `csdSupplierNumber` (`MAAA` + 7 digits), `incomeTaxNumber`
+(10 digits), `uifReferenceNumber`, `compensationFundNumber`, `cidbCrsNumber`, `physicalAddress`, `postalAddress`,
+`bbbeeCertificateNumber`, `bbbeeCertificateExpiry` and `bbbeeVerificationAgency`. `registrationNumber`
+(`2014/123456/07`) and `vatNumber` (10 digits starting with 4) are format-checked (400).
 
 ## Opportunities (`OPPORTUNITIES_VIEW`)
 
@@ -56,7 +63,7 @@ Summary cards include `urgency` (`CLOSING_TODAY`, `URGENT` ≤3 days, `SOON` ≤
 | Method | Path |
 |---|---|
 | GET | `/organisations?sector=&q=` |
-| GET | `/organisations/{id}` (channels, supplier platforms, monitored sources, commodities) |
+| GET | `/organisations/{id}` (channels, supplier platforms, monitored sources, commodities, mining operations) |
 | GET | `/supplier-platforms` |
 | GET | `/reference/{EVENT_TYPE\|OPPORTUNITY_STATUS\|PROCUREMENT_CATEGORY\|INDUSTRY}` |
 
@@ -123,6 +130,23 @@ Opportunity responses include `submissionMethod` (`ELECTRONIC`, `PHYSICAL`, `ELE
 
 Changes need `PIPELINE_EDIT`. Pipeline data is tenant-specific and never changes the global opportunity.
 
+### Tender forms and bid documents (opportunity must be in the tenant's pipeline, else 404)
+
+| Method | Path | Notes |
+|---|---|---|
+| GET | `/tenant/opportunities/{id}/form-fills` | Fillable PDFs (tender documents and PDFs inside ZIP packs), earlier fills, `ocrAvailable` |
+| POST | `/tenant/opportunities/{id}/form-fills` | `{opportunityDocumentId, zipEntry?}`: downloads the document if needed, proposes placements from the company profile |
+| POST | `/tenant/opportunities/{id}/form-fills/upload` | Multipart `file` (PDF, 25 MB): fill a form not published by the source |
+| GET / PUT / DELETE | `/tenant/opportunities/{id}/form-fills/{fillId}` | Draft with page sizes, placements and warnings / save reviewed placements / delete |
+| GET | `/tenant/opportunities/{id}/form-fills/{fillId}/pages/{n}` | PNG preview of page n (0-based) |
+| POST | `/tenant/opportunities/{id}/form-fills/{fillId}/generate` | Writes the values into a copy of the PDF and stores it as a bid document |
+| GET / POST | `/tenant/opportunities/{id}/bid-documents` | List (`OPPORTUNITIES_VIEW`) / upload (25 MB, type-checked) |
+| GET / DELETE | `/tenant/opportunities/{id}/bid-documents/{docId}` | Download (`OPPORTUNITIES_VIEW`) / delete |
+
+Form fills need `PIPELINE_EDIT`. Placement coordinates are PDF points from the page's top-left. Directors'
+identity numbers appear in drafts only masked (and are refused if typed in); they are decrypted into the PDF at
+generation, and only for users with `COMPANY_PROFILE_EDIT`.
+
 ## Notifications, reports, privacy, administration
 
 | Method | Path |
@@ -132,7 +156,7 @@ Changes need `PIPELINE_EDIT`. Pipeline data is tenant-specific and never changes
 | GET/PUT | `/notifications/preferences` |
 | GET | `/analytics/pipeline`, `/analytics/opportunities?weeks=`, `/analytics/categories`, `/analytics/organisations` |
 | GET / POST | `/users/me/export` / `/users/me/delete` `{password}` |
-| POST/PUT | `/admin/organisations[/{id}]`, `/admin/organisations/{id}/channels[/{channelId}]` (DELETE channel) |
+| POST/PUT | `/admin/organisations[/{id}]`, `/admin/organisations/{id}/channels[/{channelId}]` (DELETE channel), `/admin/organisations/{id}/operations[/{operationId}]` (DELETE operation; mining-sector organisations only, else 422; name unique per company, else 409) |
 
 Authentication: `/auth/refresh` and `/auth/logout` accept the refresh token from the `oip_refresh` httpOnly cookie
 (web app) or the body (API clients); login/register/refresh set the cookie.

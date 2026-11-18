@@ -8,6 +8,15 @@
 | frontend | `frontend/Dockerfile` (nginx) | 80 | Serves the SPA, proxies `/api`, `/v3/api-docs`, `/swagger-ui` to `backend:8080`, sets security headers |
 | postgres | `postgres:17-alpine` | 5432 | Use a managed service in production |
 
+The backend image includes Tesseract OCR (English) for scanned tender forms, which adds about 85 MB. Without it
+(e.g. running the jar locally on Windows) digital PDFs are still filled and scanned pages are reported as
+unreadable. Settings: `OIP_OCR_ENABLED`, `OIP_OCR_COMMAND`, `OIP_OCR_LANGUAGE`, `OIP_OCR_MAX_PAGES` (30 scanned
+pages per form).
+
+`OIP_DATA_ENCRYPTION_KEY` (`openssl rand -base64 32`) encrypts directors' identity numbers. It is required by
+`docker-compose.prod.yml` and optional locally. Store a copy outside the server; restoring a database backup
+without the same key leaves identity numbers unreadable.
+
 Local: `docker compose up --build` (see README). Compose binds ports to `127.0.0.1` only. Host ports are
 configurable when another project already uses them: `OIP_WEB_PORT` (4200), `OIP_API_PORT` (8080),
 `OIP_MAIL_UI_PORT` (8025), e.g. `OIP_WEB_PORT=4300 OIP_API_PORT=8180 docker compose up -d`. Set `OIP_APP_URL` to
@@ -28,6 +37,8 @@ the address people use, because it is used in e-mailed links.
    notifications) are idempotent; to run them on one instance only, set `OIP_DOCUMENTS_PROCESSING_ENABLED=false`
    and `oip.matching.background-enabled` / `oip.notifications.jobs-enabled` to false on the others.
 5. **Crawler identity:** set `OIP_CRAWLER_USER_AGENT` with a real contact URL/email page for source operators.
+   With scheduled crawling on, the backend refuses to start while it has no contact or still uses a placeholder
+   from the example files (`example.invalid`, `your-domain`, `example.co.za`, …).
    Outbound traffic should leave from a stable IP so operators can identify or allow-list it.
 6. **AI (optional):** set `ANTHROPIC_API_KEY`; choose model, effort and daily limits under Administration → AI settings.
 7. **E-mail:** set `OIP_MAIL_ENABLED=true`, `OIP_MAIL_HOST/PORT/USERNAME/PASSWORD`, `OIP_MAIL_FROM` and `OIP_APP_URL`

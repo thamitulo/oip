@@ -5,6 +5,8 @@ oip:
     jwt-secret: test-secret-that-is-at-least-32-characters-long
     auth-requests-per-minute: 0
     secure-cookies: false
+    # Test-only key; never use in a real environment.
+    data-encryption-key: B015SFXbsyylxIkubw5G3bTdM5Yogg07na+WDqEvz/Y=
   crawler:
     scheduler-enabled: false
     # Tests crawl local fixture servers on 127.0.0.1.

@@ -65,6 +65,59 @@ class OrganisationAdminIT extends IntegrationTest {
     }
 
     @Test
+    void adminManagesMiningOperations() throws Exception {
+        Session admin = api().platformAdmin(jdbc);
+        String id = api().read(api().post("/api/v1/admin/organisations", admin, org("Ops Mining Co " + UUID.randomUUID()))
+                .andExpect(status().isCreated())).get("organisation").get("id").asString();
+
+        Map<String, Object> op = new HashMap<>(Map.of("name", "North Shaft", "province", "LIMPOPO",
+                "locality", "Steelpoort", "commodity", "Chrome"));
+        JsonNode created = api().read(api().post("/api/v1/admin/organisations/" + id + "/operations", admin, op)
+                .andExpect(status().isCreated()));
+        JsonNode o = created.get("operations").get(0);
+        assertThat(o.get("name").asString()).isEqualTo("North Shaft");
+        assertThat(o.get("province").asString()).isEqualTo("LIMPOPO");
+        String opId = o.get("id").asString();
+
+        // Names are unique per company, ignoring case.
+        op.put("name", "north shaft");
+        api().post("/api/v1/admin/organisations/" + id + "/operations", admin, op).andExpect(status().isConflict());
+
+        op.put("name", "North Shaft Plant");
+        op.put("commodity", "PGMs");
+        JsonNode updated = api().read(api().put("/api/v1/admin/organisations/" + id + "/operations/" + opId, admin, op)
+                .andExpect(status().isOk()));
+        assertThat(updated.get("operations").get(0).get("commodity").asString()).isEqualTo("PGMs");
+
+        // An operation cannot be reached through another organisation.
+        String other = api().read(api().post("/api/v1/admin/organisations", admin, org("Other Mining Co " + UUID.randomUUID()))
+                .andExpect(status().isCreated())).get("organisation").get("id").asString();
+        api().delete("/api/v1/admin/organisations/" + other + "/operations/" + opId, admin).andExpect(status().isNotFound());
+
+        api().delete("/api/v1/admin/organisations/" + id + "/operations/" + opId, admin).andExpect(status().isNoContent());
+        assertThat(api().read(api().get("/api/v1/organisations/" + id, admin)).get("operations")).isEmpty();
+        assertThat(jdbc.queryForObject("select count(*) from audit_events where entity_id = ? and action like 'MINING_OPERATION_%'",
+                Integer.class, opId)).isEqualTo(3);
+    }
+
+    @Test
+    void operationsAreOnlyForMiningOrganisationsAndValidProvinces() throws Exception {
+        Session admin = api().platformAdmin(jdbc);
+        Map<String, Object> gov = org("Gov Dept " + UUID.randomUUID());
+        gov.put("organisationType", "NATIONAL_DEPARTMENT");
+        gov.put("sector", "GOVERNMENT");
+        String govId = api().read(api().post("/api/v1/admin/organisations", admin, gov).andExpect(status().isCreated()))
+                .get("organisation").get("id").asString();
+        api().post("/api/v1/admin/organisations/" + govId + "/operations", admin, Map.of("name", "Site"))
+                .andExpect(status().isUnprocessableContent());
+
+        String mineId = api().read(api().post("/api/v1/admin/organisations", admin, org("Prov Mining Co " + UUID.randomUUID()))
+                .andExpect(status().isCreated())).get("organisation").get("id").asString();
+        api().post("/api/v1/admin/organisations/" + mineId + "/operations", admin, Map.of("name", "Site", "province", "ATLANTIS"))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
     void ordinaryUsersCannotChangeOrganisations() throws Exception {
         Session user = api().registerTenant("Not An Admin Co");
         api().post("/api/v1/admin/organisations", user, org("Sneaky Co")).andExpect(status().isForbidden());

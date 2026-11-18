@@ -44,7 +44,14 @@ public class CrawlSchedulingConfig {
         private static final Logger log = LoggerFactory.getLogger(CrawlScheduler.class);
         private final CrawlService crawlService;
 
-        CrawlScheduler(CrawlService crawlService) {
+        CrawlScheduler(CrawlService crawlService, CrawlerProperties properties) {
+            // Unattended crawling must identify us honestly: source operators need a way to reach us before they block.
+            if (properties.lacksRealContact()) {
+                throw new IllegalStateException("Scheduled crawling is enabled but the crawler user agent has no real contact "
+                        + "URL or e-mail (\"" + properties.userAgent() + "\"). Set OIP_CRAWLER_USER_AGENT, e.g. "
+                        + "\"OIP-Crawler/1.0 (+https://oip.example.co.za/crawler)\" with your own domain, or set "
+                        + "OIP_CRAWLER_SCHEDULER_ENABLED=false.");
+            }
             this.crawlService = crawlService;
         }
 

@@ -35,8 +35,10 @@ public record CompanyProfileDto(
         @Schema(accessMode = Schema.AccessMode.READ_ONLY) Instant updatedAt,
         @NotBlank @Size(max = 300) String legalName,
         @Size(max = 300) String tradingName,
-        @Size(max = 50) String registrationNumber,
-        @Size(max = 30) String vatNumber,
+        @Schema(description = "CIPC company registration number, e.g. 2014/123456/07")
+        @Size(max = 50) @Pattern(regexp = "^((CK ?)?\\d{4}/\\d{6}/\\d{2})?$", message = "must look like 2014/123456/07") String registrationNumber,
+        @Schema(description = "SARS VAT registration number (10 digits starting with 4)")
+        @Pattern(regexp = "^(4\\d{9})?$", message = "must be 10 digits starting with 4") String vatNumber,
         @Size(max = 500) @Pattern(regexp = "^(https?://.+)?$", message = "must be an http(s) URL") String website,
         @Size(max = 10_000) String description,
         Province province,
@@ -61,7 +63,24 @@ public record CompanyProfileDto(
         @Size(max = 100) List<@Valid CertificationDto> certifications,
         @Size(max = 100) List<@Valid RegistrationDto> registrations,
         @Size(max = 100) List<@Valid CapabilityDto> capabilities,
-        @Size(max = 200) List<@Valid ReferenceDto> references) {
+        @Size(max = 200) List<@Valid ReferenceDto> references,
+        @Schema(description = "Central Supplier Database supplier number, e.g. MAAA0123456")
+        @Pattern(regexp = "^(MAAA\\d{7})?$", message = "must be MAAA followed by 7 digits") String csdSupplierNumber,
+        @Schema(description = "SARS income tax reference number (10 digits)")
+        @Pattern(regexp = "^(\\d{10})?$", message = "must be 10 digits") String incomeTaxNumber,
+        @Size(max = 30) @Pattern(regexp = REFERENCE, message = REFERENCE_MESSAGE) String uifReferenceNumber,
+        @Size(max = 30) @Pattern(regexp = REFERENCE, message = REFERENCE_MESSAGE) String compensationFundNumber,
+        @Schema(description = "CIDB contractor registration (CRS) number")
+        @Size(max = 30) @Pattern(regexp = REFERENCE, message = REFERENCE_MESSAGE) String cidbCrsNumber,
+        @Size(max = 500) String physicalAddress,
+        @Size(max = 500) String postalAddress,
+        @Size(max = 100) String bbbeeCertificateNumber,
+        LocalDate bbbeeCertificateExpiry,
+        @Size(max = 200) String bbbeeVerificationAgency) {
+
+    /** UIF, Compensation Fund and CRS numbers have no single published format; accept what the certificates show. */
+    static final String REFERENCE = "^[A-Za-z0-9/ -]*$";
+    static final String REFERENCE_MESSAGE = "may contain only letters, digits, spaces, '/' and '-'";
 
     public record CertificationDto(@NotBlank @Size(max = 200) String name,
                                    @Size(max = 200) String issuingBody,

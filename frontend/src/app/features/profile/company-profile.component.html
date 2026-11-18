@@ -15,8 +15,10 @@
         <mat-form-field appearance="outline"><mat-label>Legal name</mat-label><input matInput formControlName="legalName" required />
           @if (form.controls.legalName.hasError('required')) { <mat-error>Required</mat-error> }</mat-form-field>
         <mat-form-field appearance="outline"><mat-label>Trading name</mat-label><input matInput formControlName="tradingName" /></mat-form-field>
-        <mat-form-field appearance="outline"><mat-label>Registration number</mat-label><input matInput formControlName="registrationNumber" /></mat-form-field>
-        <mat-form-field appearance="outline"><mat-label>VAT number</mat-label><input matInput formControlName="vatNumber" /></mat-form-field>
+        <mat-form-field appearance="outline"><mat-label>Company registration number</mat-label><input matInput formControlName="registrationNumber" placeholder="2014/123456/07" />
+          @if (form.controls.registrationNumber.hasError('pattern')) { <mat-error>Format: 2014/123456/07</mat-error> }</mat-form-field>
+        <mat-form-field appearance="outline"><mat-label>VAT number</mat-label><input matInput formControlName="vatNumber" placeholder="4123456789" />
+          @if (form.controls.vatNumber.hasError('pattern')) { <mat-error>10 digits starting with 4</mat-error> }</mat-form-field>
         <mat-form-field appearance="outline"><mat-label>Website</mat-label><input matInput formControlName="website" placeholder="https://" />
           @if (form.controls.website.hasError('pattern')) { <mat-error>Must start with http:// or https://</mat-error> }</mat-form-field>
         <mat-form-field appearance="outline"><mat-label>Province</mat-label>
@@ -33,6 +35,29 @@
     </section>
 
     <section class="card">
+      <h2>Tender form details</h2>
+      <p class="muted small" style="margin-top:0">Entered once and pre-filled into tenders' SBD/MBD forms. You always review the values before a filled form is created.</p>
+      <div class="fields">
+        <mat-form-field appearance="outline"><mat-label>CSD supplier number</mat-label><input matInput formControlName="csdSupplierNumber" placeholder="MAAA0123456" />
+          @if (form.controls.csdSupplierNumber.hasError('pattern')) { <mat-error>MAAA followed by 7 digits</mat-error> }</mat-form-field>
+        <mat-form-field appearance="outline"><mat-label>Income tax reference number</mat-label><input matInput formControlName="incomeTaxNumber" />
+          @if (form.controls.incomeTaxNumber.hasError('pattern')) { <mat-error>10 digits</mat-error> }</mat-form-field>
+        <mat-form-field appearance="outline"><mat-label>UIF reference number</mat-label><input matInput formControlName="uifReferenceNumber" />
+          @if (form.controls.uifReferenceNumber.invalid) { <mat-error>Letters, digits, '/' and '-' only</mat-error> }</mat-form-field>
+        <mat-form-field appearance="outline"><mat-label>Compensation Fund (COIDA) number</mat-label><input matInput formControlName="compensationFundNumber" />
+          @if (form.controls.compensationFundNumber.invalid) { <mat-error>Letters, digits, '/' and '-' only</mat-error> }</mat-form-field>
+        <mat-form-field appearance="outline"><mat-label>CIDB CRS (contractor registration) number</mat-label><input matInput formControlName="cidbCrsNumber" />
+          @if (form.controls.cidbCrsNumber.invalid) { <mat-error>Letters, digits, '/' and '-' only</mat-error> }</mat-form-field>
+      </div>
+      <div class="fields">
+        <mat-form-field appearance="outline"><mat-label>Physical address</mat-label><textarea matInput rows="2" formControlName="physicalAddress"></textarea></mat-form-field>
+        <mat-form-field appearance="outline"><mat-label>Postal address</mat-label><textarea matInput rows="2" formControlName="postalAddress"></textarea></mat-form-field>
+      </div>
+    </section>
+
+    @if (canEdit) { <app-directors /> }
+
+    <section class="card">
       <h2>Transformation and grading</h2>
       <div class="fields">
         <mat-form-field appearance="outline"><mat-label>B-BBEE level</mat-label>
@@ -46,6 +71,9 @@
           <input matInput type="number" min="0" max="100" formControlName="blackOwnershipPercentage" />
           <mat-hint>Voluntary</mat-hint></mat-form-field>
         <mat-form-field appearance="outline"><mat-label>CIDB grading</mat-label><input matInput formControlName="cidbGrading" placeholder="e.g. 5CE" /></mat-form-field>
+        <mat-form-field appearance="outline"><mat-label>B-BBEE certificate number</mat-label><input matInput formControlName="bbbeeCertificateNumber" /></mat-form-field>
+        <mat-form-field appearance="outline"><mat-label>B-BBEE certificate expiry</mat-label><input matInput type="date" formControlName="bbbeeCertificateExpiry" /></mat-form-field>
+        <mat-form-field appearance="outline"><mat-label>Verification agency</mat-label><input matInput formControlName="bbbeeVerificationAgency" /></mat-form-field>
       </div>
     </section>
 

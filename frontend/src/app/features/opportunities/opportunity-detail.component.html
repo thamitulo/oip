@@ -214,8 +214,10 @@
           } @else {
             <p class="muted small" style="margin:0 0 8px">Not in your pipeline. Track it to assign owners, tasks and a go/no-go decision.</p>
             @if (canEditPipeline) { <button mat-flat-button (click)="shortlist()"><mat-icon>bookmark_add</mat-icon>Add to pipeline</button> }
+            <p class="xs muted" style="margin:8px 0 0">Add it to your pipeline to pre-fill its tender forms with your company details.</p>
           }
         </section>
+        @if (pipeline()) { <app-bid-forms [opportunityId]="id()" [canEdit]="canEditPipeline" /> }
 
         <section class="card">
           <h2>Source evidence</h2>

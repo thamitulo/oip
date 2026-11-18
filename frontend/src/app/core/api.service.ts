@@ -4,9 +4,9 @@ import { Observable } from 'rxjs';
 import {
   AiSettings, AiStatus, AppNotification, AssistantMessage, AssistantReply, CompanyDocument, Conversation, Match,
   MatchSettings, NotificationPreferences, PipelineDetail, PipelineItem, Recommended, Requirement, Stage, Task,
-  AddMemberResult, TokenInfo, OrganisationRequest, ChannelRequest, SupplierPlatformSummary, ChangeEvent, CompanyProfile, CrawlError, CrawlRun, CrawlRunDetail, Dashboard, DryRunResult, Member,
+  AddMemberResult, TokenInfo, OrganisationRequest, ChannelRequest, MiningOperationRequest, SupplierPlatformSummary, ChangeEvent, CompanyProfile, CrawlError, CrawlRun, CrawlRunDetail, Dashboard, DryRunResult, Member,
   OpportunityDetail, OpportunityQuery, OpportunitySummary, OrganisationDetail, OrganisationSummary, Page,
-  Problem, Sector, Source, SourceHealth,
+  Problem, Sector, Source, SourceHealth, Director, DirectorRequest, Fillable, FormFill, Placement, BidDocument,
 } from './models';
 
 /** Typed access to the OIP REST API. */
@@ -52,6 +52,15 @@ export class ApiService {
   }
   deleteChannel(id: string, channelId: string): Observable<void> {
     return this.http.delete<void>(`/api/v1/admin/organisations/${id}/channels/${channelId}`);
+  }
+  addOperation(id: string, body: MiningOperationRequest): Observable<OrganisationDetail> {
+    return this.http.post<OrganisationDetail>(`/api/v1/admin/organisations/${id}/operations`, body);
+  }
+  updateOperation(id: string, operationId: string, body: MiningOperationRequest): Observable<OrganisationDetail> {
+    return this.http.put<OrganisationDetail>(`/api/v1/admin/organisations/${id}/operations/${operationId}`, body);
+  }
+  deleteOperation(id: string, operationId: string): Observable<void> {
+    return this.http.delete<void>(`/api/v1/admin/organisations/${id}/operations/${operationId}`);
   }
   organisation(id: string): Observable<OrganisationDetail> {
     return this.http.get<OrganisationDetail>(`/api/v1/organisations/${id}`);
@@ -147,6 +156,62 @@ export class ApiService {
   }
   download(url: string): Observable<Blob> {
     return this.http.get(url, { responseType: 'blob' });
+  }
+
+  // Directors / members (personal information; profile editors only)
+  directors(): Observable<Director[]> {
+    return this.http.get<Director[]>('/api/v1/companies/profile/directors');
+  }
+  addDirector(body: DirectorRequest): Observable<Director> {
+    return this.http.post<Director>('/api/v1/companies/profile/directors', body);
+  }
+  updateDirector(id: string, body: DirectorRequest): Observable<Director> {
+    return this.http.put<Director>(`/api/v1/companies/profile/directors/${id}`, body);
+  }
+  deleteDirector(id: string): Observable<void> {
+    return this.http.delete<void>(`/api/v1/companies/profile/directors/${id}`);
+  }
+
+  // Tender form filling and bid documents (per pipeline item)
+  fillable(opportunityId: string): Observable<Fillable> {
+    return this.http.get<Fillable>(`/api/v1/tenant/opportunities/${opportunityId}/form-fills`);
+  }
+  startFormFill(opportunityId: string, opportunityDocumentId: string, zipEntry: string | null): Observable<FormFill> {
+    return this.http.post<FormFill>(`/api/v1/tenant/opportunities/${opportunityId}/form-fills`, { opportunityDocumentId, zipEntry });
+  }
+  uploadFormFill(opportunityId: string, file: File): Observable<FormFill> {
+    const form = new FormData();
+    form.append('file', file);
+    return this.http.post<FormFill>(`/api/v1/tenant/opportunities/${opportunityId}/form-fills/upload`, form);
+  }
+  formFill(opportunityId: string, fillId: string): Observable<FormFill> {
+    return this.http.get<FormFill>(`/api/v1/tenant/opportunities/${opportunityId}/form-fills/${fillId}`);
+  }
+  saveFormFill(opportunityId: string, fillId: string, placements: Placement[]): Observable<FormFill> {
+    return this.http.put<FormFill>(`/api/v1/tenant/opportunities/${opportunityId}/form-fills/${fillId}`, placements);
+  }
+  generateFormFill(opportunityId: string, fillId: string): Observable<FormFill> {
+    return this.http.post<FormFill>(`/api/v1/tenant/opportunities/${opportunityId}/form-fills/${fillId}/generate`, null);
+  }
+  deleteFormFill(opportunityId: string, fillId: string): Observable<void> {
+    return this.http.delete<void>(`/api/v1/tenant/opportunities/${opportunityId}/form-fills/${fillId}`);
+  }
+  formFillPageUrl(opportunityId: string, fillId: string, page: number): string {
+    return `/api/v1/tenant/opportunities/${opportunityId}/form-fills/${fillId}/pages/${page}`;
+  }
+  bidDocuments(opportunityId: string): Observable<BidDocument[]> {
+    return this.http.get<BidDocument[]>(`/api/v1/tenant/opportunities/${opportunityId}/bid-documents`);
+  }
+  uploadBidDocument(opportunityId: string, file: File): Observable<BidDocument> {
+    const form = new FormData();
+    form.append('file', file);
+    return this.http.post<BidDocument>(`/api/v1/tenant/opportunities/${opportunityId}/bid-documents`, form);
+  }
+  bidDocumentUrl(opportunityId: string, documentId: string): string {
+    return `/api/v1/tenant/opportunities/${opportunityId}/bid-documents/${documentId}`;
+  }
+  deleteBidDocument(opportunityId: string, documentId: string): Observable<void> {
+    return this.http.delete<void>(`/api/v1/tenant/opportunities/${opportunityId}/bid-documents/${documentId}`);
   }
 
   // Matching

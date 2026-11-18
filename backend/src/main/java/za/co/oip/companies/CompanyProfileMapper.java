@@ -43,7 +43,10 @@ final class CompanyProfileMapper {
                 p.getCapabilities().stream().map(c -> new CapabilityDto(c.getName(), c.getDescription(),
                         c.getYearsExperience())).toList(),
                 p.getReferences().stream().map(r -> new ReferenceDto(r.getClientName(), r.getProjectTitle(),
-                        r.getDescription(), r.getSector(), r.getContractValue(), r.getYearCompleted())).toList());
+                        r.getDescription(), r.getSector(), r.getContractValue(), r.getYearCompleted())).toList(),
+                p.getCsdSupplierNumber(), p.getIncomeTaxNumber(), p.getUifReferenceNumber(), p.getCompensationFundNumber(),
+                p.getCidbCrsNumber(), p.getPhysicalAddress(), p.getPostalAddress(), p.getBbbeeCertificateNumber(),
+                p.getBbbeeCertificateExpiry(), p.getBbbeeVerificationAgency());
     }
 
     static void apply(CompanyProfileDto dto, CompanyProfile p) {
@@ -51,6 +54,16 @@ final class CompanyProfileMapper {
         p.setTradingName(trim(dto.tradingName()));
         p.setRegistrationNumber(trim(dto.registrationNumber()));
         p.setVatNumber(trim(dto.vatNumber()));
+        p.setCsdSupplierNumber(trim(dto.csdSupplierNumber()));
+        p.setIncomeTaxNumber(trim(dto.incomeTaxNumber()));
+        p.setUifReferenceNumber(trim(dto.uifReferenceNumber()));
+        p.setCompensationFundNumber(trim(dto.compensationFundNumber()));
+        p.setCidbCrsNumber(trim(dto.cidbCrsNumber()));
+        p.setPhysicalAddress(trim(dto.physicalAddress()));
+        p.setPostalAddress(trim(dto.postalAddress()));
+        p.setBbbeeCertificateNumber(trim(dto.bbbeeCertificateNumber()));
+        p.setBbbeeCertificateExpiry(dto.bbbeeCertificateExpiry());
+        p.setBbbeeVerificationAgency(trim(dto.bbbeeVerificationAgency()));
         p.setWebsite(trim(dto.website()));
         p.setDescription(trim(dto.description()));
         p.setProvince(dto.province());

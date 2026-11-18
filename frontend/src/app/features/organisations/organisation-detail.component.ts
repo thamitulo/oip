@@ -9,12 +9,12 @@ import { DateTimePipe, LabelPipe } from '../../core/format';
 import { OpportunitySummary, OrganisationDetail } from '../../core/models';
 import { OpportunityTableComponent } from '../../shared/opportunity-table.component';
 import { AuthService } from '../../core/auth.service';
-import { ChannelEditorComponent, OrganisationFormComponent } from './organisation-editor.component';
+import { ChannelEditorComponent, OperationEditorComponent, OrganisationFormComponent } from './organisation-editor.component';
 
 @Component({
   selector: 'app-organisation-detail',
   imports: [RouterLink, MatButtonModule, MatIconModule, LabelPipe, DateTimePipe, OpportunityTableComponent, OrganisationFormComponent,
-    ChannelEditorComponent],
+    ChannelEditorComponent, OperationEditorComponent],
   template: `
     <div class="page">
       <a mat-button routerLink="/organisations"><mat-icon>arrow_back</mat-icon>Organisations</a>
@@ -79,6 +79,36 @@ import { ChannelEditorComponent, OrganisationFormComponent } from './organisatio
             } @empty { <div class="muted">This organisation's opportunities are discovered through a shared source such as eTenders.</div> }
           </section>
         </div>
+        @if (d.organisation.sector === 'MINING' && (isAdmin() || d.operations.length)) {
+          <section class="card" style="margin-top:16px">
+            <div class="row" style="justify-content:space-between;margin-bottom:4px">
+              <h2 style="margin:0">Operations</h2>
+              @if (isAdmin() && operationEdit() === null) { <button mat-button (click)="operationEdit.set('new')"><mat-icon>add</mat-icon>Add operation</button> }
+            </div>
+            @if (operationEdit() === 'new') {
+              <app-operation-editor [organisationId]="d.organisation.id" (saved)="data.set($event); operationEdit.set(null)" (cancelled)="operationEdit.set(null)" />
+            }
+            @for (o of d.operations; track o.id) {
+              <div style="padding:10px 0;border-bottom:1px solid var(--oip-border)">
+                <div class="row">
+                  <strong>{{ o.name }}</strong>
+                  @if (o.commodity) { <span class="pill">{{ o.commodity }}</span> }
+                  @if (isAdmin() && operationEdit() === null) {
+                    <span class="spacer"></span>
+                    <button mat-icon-button aria-label="Edit operation" (click)="operationEdit.set(o.id)"><mat-icon>edit</mat-icon></button>
+                    <button mat-icon-button aria-label="Delete operation" (click)="removeOperation(d.organisation.id, o.id, o.name)"><mat-icon>delete</mat-icon></button>
+                  }
+                </div>
+                @if (operationEdit() === o.id) {
+                  <app-operation-editor [organisationId]="d.organisation.id" [operation]="o" (saved)="data.set($event); operationEdit.set(null)" (cancelled)="operationEdit.set(null)" />
+                }
+                @if (o.province || o.locality) {
+                  <div class="muted small">{{ o.locality ?? '' }}{{ o.locality && o.province ? ', ' : '' }}{{ o.province ? (o.province | label) : '' }}</div>
+                }
+              </div>
+            } @empty { <div class="muted">No operations recorded yet.</div> }
+          </section>
+        }
         <h2 style="font:var(--mat-sys-title-medium);margin:24px 0 12px">Active opportunities ({{ total() }})</h2>
         <app-opportunity-table [items]="opportunities()" emptyText="No active opportunities from this organisation." />
       }
@@ -96,6 +126,17 @@ export class OrganisationDetailComponent {
   protected readonly editing = signal(false);
   /** null: not editing; 'new': adding; otherwise the id of the channel being edited. */
   protected readonly channelEdit = signal<string | null>(null);
+
+  /** null: not editing; 'new': adding; otherwise the id of the operation being edited. */
+  protected readonly operationEdit = signal<string | null>(null);
+
+  protected removeOperation(orgId: string, operationId: string, name: string): void {
+    if (!confirm(`Remove the operation "${name}"?`)) return;
+    this.api.deleteOperation(orgId, operationId).subscribe({
+      next: () => this.api.organisation(orgId).subscribe((d) => this.data.set(d)),
+      error: (e) => this.error.set(errorMessage(e)),
+    });
+  }
 
   protected removeChannel(orgId: string, channelId: string, name: string): void {
     if (!confirm(`Remove the channel "${name}"?`)) return;

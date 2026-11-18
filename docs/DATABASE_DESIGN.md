@@ -16,6 +16,12 @@ PostgreSQL 17, migrations with Flyway (`backend/src/main/resources/db/migration`
 | V9 | AI settings, ai_processing_audit, ai_processing_jobs, ai_classification_results, assistant conversations/messages, tenant_match_settings, opportunity_matches |
 | V10 | tenant_opportunities, bid_pipeline_history, opportunity_notes, opportunity_tasks, bid_decisions, bid_team_members, bid_documents, notification_preferences, notifications (unique per user + dedup key), notification_deliveries, users.deleted_at |
 | V11 | rate_limit_counters, retention settings |
+| V12 | State-land leasing source (DLRRD) and focus_areas |
+| V13 | DLRRD listing parser configuration |
+| V14 | account_tokens (password reset, invitations, e-mail verification; hashed, single use), users.email_verified_at |
+| V15 | Bootstrapped platform administrators treated as verified |
+| V16 | opportunities.title_vector (ranked focus search), focus_areas.search_documents and exclude_keywords |
+| V17 | Tender-form details on company_profiles (CSD, income tax, UIF, Compensation Fund, CIDB CRS, addresses, B-BBEE certificate); company_directors (identity numbers AES-GCM encrypted by the application, last 4 digits in clear); form_fills (draft placements as JSONB, linked to the generated bid document) |
 
 Conventions: UUID primary keys; `created_at`/`updated_at` (UTC `timestamptz`), `created_by`/`updated_by` and a
 `version` column for optimistic locking on mutable aggregates; enumerations stored as text with `CHECK`

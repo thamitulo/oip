@@ -74,6 +74,8 @@ oip:
     auth-requests-per-minute: ${OIP_AUTH_RATE_LIMIT_PER_MINUTE:30}
     # Refresh-token cookie is Secure (HTTPS only) by default; set false only for plain-HTTP local development.
     secure-cookies: ${OIP_SECURE_COOKIES:true}
+    # AES-256 key (base64 of 32 bytes) for personal data stored encrypted, e.g. directors' identity numbers.
+    data-encryption-key: ${OIP_DATA_ENCRYPTION_KEY:}
   app-url: ${OIP_APP_URL:http://localhost:4200}
   ai:
     # Optional. Without a key, AI features report themselves unavailable. Model/effort are set in the admin UI.
@@ -82,6 +84,15 @@ oip:
   mail:
     enabled: ${OIP_MAIL_ENABLED:false}
     from: ${OIP_MAIL_FROM:no-reply@oip.local}
+  ocr:
+    # Reads scanned tender form pages so they can be pre-filled. Needs the Tesseract binary (installed in the Docker
+    # image). Without it, digital PDFs still work and scanned pages are reported as unreadable.
+    enabled: ${OIP_OCR_ENABLED:true}
+    command: ${OIP_OCR_COMMAND:tesseract}
+    language: ${OIP_OCR_LANGUAGE:eng}
+    dpi: 300
+    timeout: PT60S
+    max-pages: ${OIP_OCR_MAX_PAGES:30}
   documents:
     storage-dir: ${OIP_STORAGE_DIR:./data/storage}
     processing-enabled: ${OIP_DOCUMENTS_PROCESSING_ENABLED:true}
