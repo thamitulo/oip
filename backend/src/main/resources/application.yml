@@ -1,6 +1,11 @@
 spring:
   application:
     name: oip-backend
+  cloud:
+    aws:
+      secretsmanager:
+        # Off unless the "aws" profile is active (application-aws.yml).
+        enabled: false
   datasource:
     url: ${OIP_DB_URL:jdbc:postgresql://localhost:5432/oip}
     username: ${OIP_DB_USERNAME:oip}
