@@ -1,0 +1,13 @@
+# Running on AWS: SPRING_PROFILES_ACTIVE=aws. Loads secrets from AWS Secrets Manager before anything
+# else starts. The secret is one JSON object whose keys use the same names as the environment variables
+# in application.yml (OIP_DB_PASSWORD, OIP_JWT_SECRET, OIP_DATA_ENCRYPTION_KEY, ANTHROPIC_API_KEY, ...),
+# so every ${...} placeholder resolves from it. A real environment variable still overrides it.
+# Not optional: the app refuses to start if the secret can't be read. Region and credentials come from
+# the standard AWS chain (ECS task role / EC2 instance profile). See docs/AWS-SECRETS.md.
+spring:
+  config:
+    import: aws-secretsmanager:${OIP_AWS_SECRET_ID:oip/prod}
+  cloud:
+    aws:
+      secretsmanager:
+        enabled: true

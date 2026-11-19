@@ -27,7 +27,7 @@ the address people use, because it is used in e-mailed links.
 1. **Database:** managed PostgreSQL 17 (e.g. AWS RDS/Aurora, Azure Database for PostgreSQL, Google Cloud SQL)
    with automated backups and point-in-time recovery. Flyway migrates on startup; run one instance first when
    deploying a new migration, or run migrations as a release job.
-2. **Secrets:** inject `OIP_DB_PASSWORD`, `OIP_JWT_SECRET`, `OIP_BOOTSTRAP_ADMIN_*` from a secret manager.
+2. **Secrets:** on AWS they come from AWS Secrets Manager (`SPRING_PROFILES_ACTIVE=aws`, see [AWS-SECRETS.md](AWS-SECRETS.md)): `OIP_DB_PASSWORD`, `OIP_JWT_SECRET`, `OIP_DATA_ENCRYPTION_KEY`, `OIP_BOOTSTRAP_ADMIN_*`, ...
    Remove the bootstrap admin variables after the first start.
 3. **TLS & edge:** terminate TLS at a load balancer in front of the frontend container; set
    `OIP_FORWARD_HEADERS_STRATEGY=framework` on the backend if it receives forwarded headers.
