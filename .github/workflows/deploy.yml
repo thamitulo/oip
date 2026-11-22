@@ -1,0 +1,79 @@
+name: Deploy to AWS
+
+# Builds the backend and frontend images, pushes them to ECR and deploys them on the shared Bluetank
+# server (bluetank-infra: apps-oip.tf, apps/oip/docker-compose.yml.tftpl).
+#
+# One-time setup: apply bluetank-infra, then set the `oip_github_variables` output as variables of this
+# repo's `prod` environment (Settings -> Environments -> prod), and restrict that environment to `main`:
+#   AWS_DEPLOY_ROLE_ARN, DEPLOY_DOCUMENT, EC2_INSTANCE_ID, ECR_BACKEND_URL, ECR_FRONTEND_URL
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  id-token: write # OIDC: assume the AWS deploy role without stored keys
+  contents: read
+
+concurrency:
+  group: deploy-oip
+  cancel-in-progress: false
+
+env:
+  AWS_REGION: af-south-1
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    environment: prod
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - context: ./backend
+            repo_var: ECR_BACKEND_URL
+          - context: ./frontend
+            repo_var: ECR_FRONTEND_URL
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - uses: aws-actions/amazon-ecr-login@v2
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/build-push-action@v6
+        with:
+          context: ${{ matrix.context }}
+          push: true
+          provenance: false
+          tags: ${{ vars[matrix.repo_var] }}:${{ github.sha }}
+          cache-from: type=gha,scope=${{ matrix.repo_var }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.repo_var }}
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment: prod
+    steps:
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Deploy on the server
+        run: |
+          id=$(aws ssm send-command \
+            --document-name "${{ vars.DEPLOY_DOCUMENT }}" \
+            --instance-ids "${{ vars.EC2_INSTANCE_ID }}" \
+            --parameters tag="${{ github.sha }}" \
+            --comment "oip ${{ github.sha }}" \
+            --query Command.CommandId --output text)
+          aws ssm wait command-executed --command-id "$id" --instance-id "${{ vars.EC2_INSTANCE_ID }}" || true
+          aws ssm get-command-invocation --command-id "$id" --instance-id "${{ vars.EC2_INSTANCE_ID }}" \
+            --query '[Status, StandardOutputContent, StandardErrorContent]' --output text
+          test "$(aws ssm get-command-invocation --command-id "$id" --instance-id "${{ vars.EC2_INSTANCE_ID }}" --query Status --output text)" = Success
