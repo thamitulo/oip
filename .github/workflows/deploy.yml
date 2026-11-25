@@ -3,9 +3,9 @@ name: Deploy to AWS
 # Builds the backend and frontend images, pushes them to ECR and deploys them on the shared Bluetank
 # server (bluetank-infra: apps-oip.tf, apps/oip/docker-compose.yml.tftpl).
 #
-# One-time setup: apply bluetank-infra, then set the `oip_github_variables` output as variables of this
-# repo's `prod` environment (Settings -> Environments -> prod), and restrict that environment to `main`:
-#   AWS_DEPLOY_ROLE_ARN, DEPLOY_DOCUMENT, EC2_INSTANCE_ID, ECR_BACKEND_URL, ECR_FRONTEND_URL
+# Deploys to staging only. Prod: Actions -> Promote to prod (promote.yml) deploys the same build.
+# The `staging` GitHub environment holds the `<app>_github_variables` output of bluetank-infra's
+# `staging` workspace.
 on:
   push:
     branches: [main]
@@ -15,17 +15,13 @@ permissions:
   id-token: write # OIDC: assume the AWS deploy role without stored keys
   contents: read
 
-concurrency:
-  group: deploy-oip
-  cancel-in-progress: false
-
 env:
   AWS_REGION: af-south-1
 
 jobs:
   build:
     runs-on: ubuntu-latest
-    environment: prod
+    environment: staging # pushes with the staging role; prod deploys the same tags
     strategy:
       fail-fast: true
       matrix:
@@ -55,10 +51,13 @@ jobs:
           cache-from: type=gha,scope=${{ matrix.repo_var }}
           cache-to: type=gha,mode=max,scope=${{ matrix.repo_var }}
 
-  deploy:
+  deploy-staging:
     needs: build
     runs-on: ubuntu-latest
-    environment: prod
+    environment: staging
+    concurrency:
+      group: deploy-oip-staging
+      cancel-in-progress: false
     steps:
       - uses: aws-actions/configure-aws-credentials@v4
         with:

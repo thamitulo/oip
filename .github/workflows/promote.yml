@@ -1,0 +1,58 @@
+name: Promote to prod
+
+# Deploys a commit that is already on staging to prod, using the same image tag (nothing is rebuilt).
+# Run it from Actions -> Promote to prod -> Run workflow; leave `sha` empty for the latest commit on main.
+# Only commits whose "Deploy to AWS" run succeeded can be promoted.
+# The `prod` GitHub environment holds the `<app>_github_variables` output of bluetank-infra's default (prod) workspace.
+on:
+  workflow_dispatch:
+    inputs:
+      sha:
+        description: Commit to promote (full SHA). Empty = latest commit on main.
+        required: false
+        default: ''
+
+permissions:
+  id-token: write # OIDC: assume the AWS deploy role without stored keys
+  contents: read
+  actions: read   # find the staging run
+
+env:
+  AWS_REGION: af-south-1
+  TAG: ${{ inputs.sha || github.sha }}
+
+jobs:
+  prod:
+    runs-on: ubuntu-latest
+    environment: prod
+    concurrency:
+      group: deploy-oip-prod
+      cancel-in-progress: false
+    steps:
+      - name: Check that this commit reached staging
+        id: staging
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          run=$(gh run list --repo "$GITHUB_REPOSITORY" --workflow deploy.yml --commit "$TAG" --status success \
+            --limit 1 --json databaseId --jq '.[0].databaseId // empty')
+          test -n "$run" || { echo "::error::$TAG has no successful staging deploy (deploy.yml); deploy it to staging first."; exit 1; }
+          echo "run_id=$run" >> "$GITHUB_OUTPUT"
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Deploy on the server
+        run: |
+          id=$(aws ssm send-command \
+            --document-name "${{ vars.DEPLOY_DOCUMENT }}" \
+            --instance-ids "${{ vars.EC2_INSTANCE_ID }}" \
+            --parameters tag="${{ env.TAG }}" \
+            --comment "oip ${{ env.TAG }}" \
+            --query Command.CommandId --output text)
+          aws ssm wait command-executed --command-id "$id" --instance-id "${{ vars.EC2_INSTANCE_ID }}" || true
+          aws ssm get-command-invocation --command-id "$id" --instance-id "${{ vars.EC2_INSTANCE_ID }}" \
+            --query '[Status, StandardOutputContent, StandardErrorContent]' --output text
+          test "$(aws ssm get-command-invocation --command-id "$id" --instance-id "${{ vars.EC2_INSTANCE_ID }}" --query Status --output text)" = Success
